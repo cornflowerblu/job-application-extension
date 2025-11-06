@@ -3,6 +3,7 @@
 **Project:** Agentic Job Hunting (AJH)
 **Version:** 0.1.0 (MVP)
 **Last Updated:** November 6, 2025
+**Current Sprint:** Sprint 0 Complete → Moving to Sprint 1
 
 ---
 
@@ -45,24 +46,54 @@ An AI-powered browser extension that:
 
 ---
 
-## Project Setup Complete
+## Project Status: Sprint 0 Complete ✅
 
 ### What's Been Built
 
+**Core Infrastructure:**
 ✅ React 19 + Vite 7 + Tailwind CSS 4 build system
+✅ TypeScript integration with strict mode
 ✅ Chrome Extension Manifest V3 configuration
-✅ Basic popup UI with configuration check
+✅ Project structure and build pipeline
+✅ Git repository with comprehensive commit history
+
+**UI Components:**
+✅ Popup UI with state management
+✅ Settings page with full configuration form
+✅ Loading states and error handling
+✅ Form status display and user feedback
+
+**Features:**
+✅ API key configuration with validation
+✅ User profile management (name, email, phone, resume summary, work auth, relocation)
 ✅ Content script for form detection and extraction
 ✅ Service worker for Claude API integration
-✅ Project structure and build pipeline
-✅ Git repository initialized with initial commit
+✅ Local storage persistence (chrome.storage.local)
+
+**Security (BONUS):**
+✅ Input sanitization and validation (`src/utils/security.ts`)
+✅ Prompt injection prevention
+✅ Rate limiting with memory leak prevention
+✅ API key format validation
+✅ Content Security Policy (CSP) hardening
+✅ AES-GCM encryption utilities (optional)
+✅ Security documentation (`docs/security.md`)
+
+**Documentation:**
+✅ Development plan (`docs/plan.md`)
+✅ Security documentation (`docs/security.md`)
+✅ AI assistant guidance (`.github/copilot-instructions.md`)
 
 ### Current State
 
-- Extension loads successfully in Chrome
-- Basic shell for all major components created
-- Development workflow established (`npm run dev` for watch mode)
-- Ready for feature development
+- ✅ Extension loads successfully in Chrome
+- ✅ All major components implemented
+- ✅ Settings UI fully functional with validation
+- ✅ API integration working with retry logic
+- ✅ Security hardened and documented
+- ✅ TypeScript migration complete
+- ✅ Development workflow established (`npm run dev` for watch mode)
+- **Ready for form detection testing and enhancement**
 
 ---
 
@@ -74,12 +105,12 @@ Enable a user to install the extension, configure it once, and successfully use 
 
 ### In Scope for MVP
 
-#### Epic 1: Extension Setup & Configuration (PARTIAL)
+#### Epic 1: Extension Setup & Configuration ✅ COMPLETE
 
-- ✅ Configure Anthropic API Key
-- ✅ Configure Biographical Data (name, email, phone)
-- ✅ Upload Resume (PDF only)
-- ✅ Configure Standard Answers (work authorization & relocation)
+- ✅ **Configure Anthropic API Key** - AJH-8 (with format & API validation)
+- ✅ **Configure Biographical Data** (name, email, phone)
+- ✅ **Resume/Experience Summary** (textarea input for MVP, not file upload)
+- ✅ **Configure Standard Answers** (work authorization & relocation dropdowns)
 - ❌ Configure Positioning Guide (POST-MVP)
 
 #### Epic 2: Form Detection & Analysis (FULL)
@@ -119,7 +150,7 @@ Enable a user to install the extension, configure it once, and successfully use 
 
 ## Development Roadmap
 
-### Sprint 0: Foundation (Weeks 1-2) - IN PROGRESS
+### Sprint 0: Foundation (Weeks 1-2) ✅ COMPLETE
 
 **Goal:** Extension shell + basic configuration
 
@@ -127,18 +158,23 @@ Enable a user to install the extension, configure it once, and successfully use 
 
 - ✅ Browser extension manifest and basic structure
 - ✅ Basic popup UI shell
-- ⏳ Settings page UI
-- ⏳ API key configuration
-- ⏳ Biographical data form
-- ⏳ Resume upload (PDF)
-- ⏳ Standard answers configuration
-- ⏳ Local storage persistence
+- ✅ Settings page UI (full implementation)
+- ✅ API key configuration (with validation)
+- ✅ Biographical data form
+- ✅ Resume summary (textarea - file upload deferred)
+- ✅ Standard answers configuration
+- ✅ Local storage persistence
+- ✅ **BONUS:** TypeScript migration
+- ✅ **BONUS:** Security hardening (input sanitization, rate limiting, CSP)
+- ✅ **BONUS:** Comprehensive documentation
 
 **Definition of Done:**
 
-- User can install extension
-- User can configure settings
-- Settings persist after browser restart
+- ✅ User can install extension
+- ✅ User can configure settings
+- ✅ Settings persist after browser restart
+- ✅ API key validation works
+- ✅ All inputs are sanitized and validated
 
 ---
 
@@ -247,8 +283,9 @@ Enable a user to install the extension, configure it once, and successfully use 
 
 ### 2. Resume Format
 
-**Decision:** PDF only for MVP
-**Rationale:** Most common format; text/DOCX can be added later
+**Decision:** Text summary input for MVP (textarea)
+**Rationale:** File upload adds complexity; users can paste resume text or write summary; file upload (PDF/DOCX) deferred to post-MVP
+**Implementation:** 20,000 character limit with sanitization
 
 ### 3. Hybrid Architecture
 
@@ -264,6 +301,18 @@ Enable a user to install the extension, configure it once, and successfully use 
 
 **Decision:** Generic form detection, user manually triggers
 **Rationale:** Simpler than detecting specific job boards; works universally
+
+### 6. TypeScript Adoption
+
+**Decision:** Migrate entire codebase to TypeScript after initial setup
+**Rationale:** Better type safety, improved DX, catches bugs at compile time
+**Implementation:** Strict mode enabled, full type coverage for all components
+
+### 7. Security-First Approach
+
+**Decision:** Implement comprehensive security measures from the start
+**Rationale:** Handling sensitive user data (API keys, personal info); better to build security in than retrofit later
+**Implementation:** Input sanitization, rate limiting, CSP hardening, prompt injection prevention
 
 ---
 
@@ -325,28 +374,49 @@ npm run build
 
 ## Next Immediate Steps
 
-### Priority 1: Settings Page (Current Sprint)
+### ✅ Sprint 0 Complete - Configuration System Ready
 
-Build the configuration UI that allows users to set up:
+All configuration features have been implemented and tested:
+- API key validation working
+- Profile data persisting correctly
+- Security measures in place
 
-- Anthropic API key (with validation)
-- Personal information (name, email, phone)
-- Resume upload (PDF)
-- Standard answers (work authorization, relocation)
+### 🎯 Sprint 1: Form Detection & Testing (Current Priority)
 
-### Priority 2: Form Detection Enhancement
+**Goal:** Validate form detection works on real job boards
 
-Improve the form detection logic and test on real job boards:
+**Tasks:**
+1. **Manual Testing on Job Boards:**
+   - Test on LinkedIn Easy Apply
+   - Test on Indeed
+   - Test on Workday-based applications
+   - Test on Greenhouse-based applications
+   - Test on Lever-based applications
 
-- LinkedIn
-- Indeed
-- Workday
-- Greenhouse
-- Lever
+2. **Form Detection Enhancement:**
+   - Verify field type detection accuracy
+   - Test job posting extraction
+   - Handle edge cases (hidden fields, dynamic forms)
+   - Improve error messaging
 
-### Priority 3: Preview Modal
+3. **Debug & Fix:**
+   - Fix any field extraction issues
+   - Improve form vs non-form detection
+   - Handle complex field types (file uploads, custom inputs)
 
-Build the UI where users review and edit AI-generated fills before applying them to the form.
+**Definition of Done:**
+- Extension successfully detects forms on 5+ major job boards
+- Field extraction works for all standard HTML input types
+- Job posting text extraction is reliable
+- Clear error messages for unsupported scenarios
+
+### 🔜 Sprint 2: AI Integration & Preview Modal
+
+Once form detection is validated, build:
+- Preview modal UI for reviewing AI-generated fills
+- Edit functionality for user corrections
+- Form population logic
+- Error recovery (preserve edits on failure)
 
 ---
 
@@ -385,12 +455,13 @@ Build the UI where users review and edit AI-generated fills before applying them
 
 ### Known Limitations (MVP)
 
-- Chrome only
-- PDF resume only
-- Single-page forms only
-- Manual trigger required
-- No application history/tracking
-- No cost monitoring
+- Chrome only (Firefox post-MVP)
+- Resume as text summary only (file upload deferred to post-MVP)
+- Single-page forms only (multi-page forms post-MVP)
+- Manual trigger required (auto-detection post-MVP)
+- No application history/tracking (post-MVP)
+- No cost monitoring (post-MVP)
+- No positioning guide support (post-MVP)
 
 ### Future Enhancements (Post-MVP)
 
@@ -407,4 +478,5 @@ Build the UI where users review and edit AI-generated fills before applying them
 
 **Document Status:** Active Development Plan
 **Last Updated:** November 6, 2025
-**Next Review:** After Sprint 0 completion
+**Sprint Status:** Sprint 0 Complete ✅ → Sprint 1 In Progress
+**Next Review:** After Sprint 1 completion (form detection validation)
