@@ -9,8 +9,8 @@ export default defineConfig({
     rollupOptions: {
       input: {
         popup: resolve(__dirname, 'index.html'),
-        'service-worker': resolve(__dirname, 'src/background/service-worker.js'),
-        'content-script': resolve(__dirname, 'src/content/content-script.js'),
+        'service-worker': resolve(__dirname, 'src/background/service-worker.ts'),
+        'content-script': resolve(__dirname, 'src/content/content-script.ts'),
       },
       output: {
         entryFileNames: (chunkInfo) => {

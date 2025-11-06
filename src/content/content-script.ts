@@ -3,10 +3,48 @@
  * Handles form detection, extraction, and filling
  */
 
+// Type definitions
+interface FormField {
+  id: string;
+  type: string;
+  label: string;
+  required: boolean;
+  placeholder?: string;
+  maxLength?: number | null;
+  options?: string[];
+}
+
+interface JobPosting {
+  title: string;
+  description: string;
+}
+
+interface ExtractedFormData {
+  fields: FormField[];
+  jobPosting: JobPosting;
+  url: string;
+}
+
+interface FormFill {
+  fieldId: string;
+  value: string | boolean;
+}
+
+interface ContentMessage {
+  type: string;
+  fills?: FormFill[];
+}
+
+interface ContentResponse {
+  success: boolean;
+  data?: ExtractedFormData;
+  error?: string;
+}
+
 console.log('Job Application Assistant: Content script loaded');
 
 // Listen for messages from the popup or service worker
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message: ContentMessage, _sender, sendResponse: (response: ContentResponse) => void) => {
   console.log('Content script received message:', message);
 
   if (message.type === 'ANALYZE_FORM') {
@@ -14,18 +52,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       .then((formData) => {
         sendResponse({ success: true, data: formData });
       })
-      .catch((error) => {
+      .catch((error: Error) => {
         sendResponse({ success: false, error: error.message });
       });
     return true; // Keep the message channel open for async response
   }
 
   if (message.type === 'FILL_FORM') {
-    fillForm(message.fills)
+    fillForm(message.fills!)
       .then(() => {
         sendResponse({ success: true });
       })
-      .catch((error) => {
+      .catch((error: Error) => {
         sendResponse({ success: false, error: error.message });
       });
     return true;
@@ -35,7 +73,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 /**
  * Analyze the current page for form fields
  */
-async function analyzeForm() {
+async function analyzeForm(): Promise<ExtractedFormData> {
   console.log('Analyzing form on page...');
 
   // Find all forms on the page
@@ -60,11 +98,11 @@ async function analyzeForm() {
 /**
  * Extract form fields and their metadata
  */
-function extractFields(form) {
-  const fields = [];
+function extractFields(form: HTMLFormElement): FormField[] {
+  const fields: FormField[] = [];
 
   // Text inputs
-  form.querySelectorAll('input[type="text"], input[type="email"], input[type="tel"], input[type="number"], input:not([type])').forEach((input) => {
+  form.querySelectorAll<HTMLInputElement>('input[type="text"], input[type="email"], input[type="tel"], input[type="number"], input:not([type])').forEach((input) => {
     fields.push({
       id: input.id || input.name || `field-${fields.length}`,
       type: input.type || 'text',
@@ -72,12 +110,11 @@ function extractFields(form) {
       required: input.required,
       placeholder: input.placeholder || '',
       maxLength: input.maxLength > 0 ? input.maxLength : null,
-      element: null, // Don't serialize the element
     });
   });
 
   // Textareas
-  form.querySelectorAll('textarea').forEach((textarea) => {
+  form.querySelectorAll<HTMLTextAreaElement>('textarea').forEach((textarea) => {
     fields.push({
       id: textarea.id || textarea.name || `field-${fields.length}`,
       type: 'textarea',
@@ -89,7 +126,7 @@ function extractFields(form) {
   });
 
   // Select dropdowns
-  form.querySelectorAll('select').forEach((select) => {
+  form.querySelectorAll<HTMLSelectElement>('select').forEach((select) => {
     const options = Array.from(select.options).map((opt) => opt.text || opt.value);
     fields.push({
       id: select.id || select.name || `field-${fields.length}`,
@@ -101,8 +138,11 @@ function extractFields(form) {
   });
 
   // Radio buttons
-  const radioGroups = new Map();
-  form.querySelectorAll('input[type="radio"]').forEach((radio) => {
+  interface RadioGroup extends FormField {
+    options: string[];
+  }
+  const radioGroups = new Map<string, RadioGroup>();
+  form.querySelectorAll<HTMLInputElement>('input[type="radio"]').forEach((radio) => {
     const name = radio.name;
     if (!radioGroups.has(name)) {
       radioGroups.set(name, {
@@ -113,12 +153,12 @@ function extractFields(form) {
         options: [],
       });
     }
-    radioGroups.get(name).options.push(radio.value || radio.id);
+    radioGroups.get(name)!.options.push(radio.value || radio.id);
   });
   radioGroups.forEach((group) => fields.push(group));
 
   // Checkboxes
-  form.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
+  form.querySelectorAll<HTMLInputElement>('input[type="checkbox"]').forEach((checkbox) => {
     fields.push({
       id: checkbox.id || checkbox.name || `field-${fields.length}`,
       type: 'checkbox',
@@ -133,30 +173,31 @@ function extractFields(form) {
 /**
  * Get the label text for a form field
  */
-function getFieldLabel(element) {
+function getFieldLabel(element: HTMLElement): string {
   // Try label element
   if (element.id) {
-    const label = document.querySelector(`label[for="${element.id}"]`);
-    if (label) return label.textContent.trim();
+    const label = document.querySelector<HTMLLabelElement>(`label[for="${element.id}"]`);
+    if (label && label.textContent) return label.textContent.trim();
   }
 
   // Try parent label
-  const parentLabel = element.closest('label');
-  if (parentLabel) return parentLabel.textContent.trim();
+  const parentLabel = element.closest<HTMLLabelElement>('label');
+  if (parentLabel && parentLabel.textContent) return parentLabel.textContent.trim();
 
   // Try aria-label
-  if (element.getAttribute('aria-label')) {
-    return element.getAttribute('aria-label');
+  const ariaLabel = element.getAttribute('aria-label');
+  if (ariaLabel) {
+    return ariaLabel;
   }
 
   // Try placeholder as fallback
-  if (element.placeholder) {
+  if ('placeholder' in element && element.placeholder) {
     return element.placeholder;
   }
 
   // Try name attribute
-  if (element.name) {
-    return element.name.replace(/[-_]/g, ' ');
+  if ('name' in element && element.name) {
+    return (element.name as string).replace(/[-_]/g, ' ');
   }
 
   return 'Unlabeled field';
@@ -165,7 +206,7 @@ function getFieldLabel(element) {
 /**
  * Extract job posting information from the page
  */
-function extractJobPosting() {
+function extractJobPosting(): JobPosting {
   // Try common selectors for job postings
   const selectors = [
     '.job-description',
@@ -177,8 +218,8 @@ function extractJobPosting() {
   ];
 
   for (const selector of selectors) {
-    const element = document.querySelector(selector);
-    if (element && element.textContent.length > 200) {
+    const element = document.querySelector<HTMLElement>(selector);
+    if (element && element.textContent && element.textContent.length > 200) {
       return {
         title: document.title,
         description: element.textContent.trim().slice(0, 5000), // Limit to 5000 chars
@@ -189,14 +230,14 @@ function extractJobPosting() {
   // Fallback to page text
   return {
     title: document.title,
-    description: document.body.textContent.trim().slice(0, 5000),
+    description: (document.body.textContent || '').trim().slice(0, 5000),
   };
 }
 
 /**
  * Fill form with provided values
  */
-async function fillForm(fills) {
+async function fillForm(fills: FormFill[]): Promise<void> {
   console.log('Filling form with provided values:', fills);
 
   for (const fill of fills) {
@@ -220,40 +261,41 @@ async function fillForm(fills) {
 /**
  * Find an element by ID, name, or other attributes
  */
-function findElementById(id) {
+function findElementById(id: string): HTMLElement | null {
   return document.getElementById(id) ||
-         document.querySelector(`[name="${id}"]`) ||
-         document.querySelector(`[data-field-id="${id}"]`);
+         document.querySelector<HTMLElement>(`[name="${id}"]`) ||
+         document.querySelector<HTMLElement>(`[data-field-id="${id}"]`);
 }
 
 /**
  * Fill a single field with a value
  */
-async function fillField(element, value) {
+async function fillField(element: HTMLElement, value: string | boolean): Promise<void> {
   const tagName = element.tagName.toLowerCase();
-  const type = element.type || 'text';
+  const type = (element as HTMLInputElement).type || 'text';
 
   if (tagName === 'input' && (type === 'text' || type === 'email' || type === 'tel' || type === 'number')) {
-    element.value = value;
+    (element as HTMLInputElement).value = String(value);
     element.dispatchEvent(new Event('input', { bubbles: true }));
     element.dispatchEvent(new Event('change', { bubbles: true }));
   } else if (tagName === 'textarea') {
-    element.value = value;
+    (element as HTMLTextAreaElement).value = String(value);
     element.dispatchEvent(new Event('input', { bubbles: true }));
     element.dispatchEvent(new Event('change', { bubbles: true }));
   } else if (tagName === 'select') {
-    const option = Array.from(element.options).find(
+    const selectElement = element as HTMLSelectElement;
+    const option = Array.from(selectElement.options).find(
       (opt) => opt.text === value || opt.value === value
     );
     if (option) {
-      element.value = option.value;
+      selectElement.value = option.value;
       element.dispatchEvent(new Event('change', { bubbles: true }));
     }
   } else if (type === 'radio') {
-    element.checked = true;
+    (element as HTMLInputElement).checked = true;
     element.dispatchEvent(new Event('change', { bubbles: true }));
   } else if (type === 'checkbox') {
-    element.checked = value === true || value === 'true' || value === 'yes';
+    (element as HTMLInputElement).checked = value === true || value === 'true' || value === 'yes';
     element.dispatchEvent(new Event('change', { bubbles: true }));
   }
 

@@ -3,29 +3,97 @@
  * Handles API calls to Claude and coordinates between popup and content scripts
  */
 
+// Type definitions
+interface FormField {
+  id: string;
+  type: string;
+  label: string;
+  required: boolean;
+  placeholder?: string;
+  maxLength?: number | null;
+  options?: string[];
+}
+
+interface JobPosting {
+  title: string;
+  description: string;
+}
+
+interface ExtractedFormData {
+  fields: FormField[];
+  jobPosting: JobPosting;
+  url: string;
+}
+
+interface UserProfile {
+  name?: string;
+  email?: string;
+  phone?: string;
+  resume?: string;
+  workAuthorization?: string;
+  willingToRelocate?: string;
+}
+
+interface Fill {
+  fieldId: string;
+  value: string;
+  confidence: 'high' | 'medium' | 'low';
+  reasoning: string;
+}
+
+interface FillsResponse {
+  fills: Fill[];
+}
+
+interface WorkerMessage {
+  type: string;
+  formData?: ExtractedFormData;
+  profile?: UserProfile;
+  apiKey?: string;
+}
+
+interface WorkerResponse {
+  success: boolean;
+  fills?: FillsResponse;
+  isValid?: boolean;
+  error?: string;
+}
+
+interface AnthropicError {
+  error?: {
+    message: string;
+  };
+}
+
+interface AnthropicResponse {
+  content: Array<{
+    text: string;
+  }>;
+}
+
 console.log('Job Application Assistant: Service worker loaded');
 
 // Listen for messages from popup and content scripts
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message: WorkerMessage, _sender, sendResponse: (response: WorkerResponse) => void) => {
   console.log('Service worker received message:', message);
 
   if (message.type === 'GENERATE_FILLS') {
-    generateFormFills(message.formData, message.profile)
+    generateFormFills(message.formData!, message.profile!)
       .then((fills) => {
         sendResponse({ success: true, fills });
       })
-      .catch((error) => {
+      .catch((error: Error) => {
         sendResponse({ success: false, error: error.message });
       });
     return true; // Keep the message channel open for async response
   }
 
   if (message.type === 'VALIDATE_API_KEY') {
-    validateApiKey(message.apiKey)
+    validateApiKey(message.apiKey!)
       .then((isValid) => {
         sendResponse({ success: true, isValid });
       })
-      .catch((error) => {
+      .catch((error: Error) => {
         sendResponse({ success: false, error: error.message });
       });
     return true;
@@ -35,7 +103,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 /**
  * Generate form fills using Claude API
  */
-async function generateFormFills(formData, profile) {
+async function generateFormFills(formData: ExtractedFormData, profile: UserProfile): Promise<FillsResponse> {
   console.log('Generating form fills with Claude...');
 
   // Get API key from storage
@@ -51,7 +119,7 @@ async function generateFormFills(formData, profile) {
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
-      'x-api-key': apiKey,
+      'x-api-key': apiKey as string,
       'anthropic-version': '2023-06-01',
       'content-type': 'application/json',
     },
@@ -68,16 +136,16 @@ async function generateFormFills(formData, profile) {
   });
 
   if (!response.ok) {
-    const error = await response.json();
+    const error: AnthropicError = await response.json();
     throw new Error(error.error?.message || 'API call failed');
   }
 
-  const data = await response.json();
+  const data: AnthropicResponse = await response.json();
   const content = data.content[0].text;
 
   // Parse the JSON response from Claude
   try {
-    const fills = JSON.parse(content);
+    const fills: FillsResponse = JSON.parse(content);
     return fills;
   } catch (error) {
     console.error('Failed to parse Claude response:', content);
@@ -88,7 +156,7 @@ async function generateFormFills(formData, profile) {
 /**
  * Construct the prompt for Claude
  */
-function constructPrompt(formData, profile) {
+function constructPrompt(formData: ExtractedFormData, profile: UserProfile): string {
   return `You are helping a job seeker fill out an application form. Analyze the form fields and job posting, then generate appropriate responses based on the user's profile.
 
 USER PROFILE:
@@ -135,7 +203,7 @@ Important: Return ONLY the JSON object, no additional text or formatting.`;
 /**
  * Validate an Anthropic API key
  */
-async function validateApiKey(apiKey) {
+async function validateApiKey(apiKey: string): Promise<boolean> {
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
