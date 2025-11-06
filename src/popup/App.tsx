@@ -252,7 +252,11 @@ function SettingsView({ onBack, onConfigured }: { onBack: () => void; onConfigur
     phone: '',
     resume: '',
     workAuthorization: '',
-    willingToRelocate: ''
+    willingToRelocate: '',
+    gender: '',
+    race: '',
+    veteranStatus: '',
+    disabilityStatus: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -279,7 +283,11 @@ function SettingsView({ onBack, onConfigured }: { onBack: () => void; onConfigur
         phone: sanitizeInput(profile.phone, 20),
         resume: sanitizeInput(profile.resume, 20000),
         workAuthorization: sanitizeInput(profile.workAuthorization, 100),
-        willingToRelocate: sanitizeInput(profile.willingToRelocate, 100)
+        willingToRelocate: sanitizeInput(profile.willingToRelocate, 100),
+        gender: sanitizeInput(profile.gender, 100),
+        race: sanitizeInput(profile.race, 100),
+        veteranStatus: sanitizeInput(profile.veteranStatus, 100),
+        disabilityStatus: sanitizeInput(profile.disabilityStatus, 100)
       };
 
       // Validation
@@ -457,6 +465,80 @@ function SettingsView({ onBack, onConfigured }: { onBack: () => void; onConfigur
             <option value="No">No</option>
             <option value="Depends on location">Depends on location</option>
           </select>
+        </div>
+
+        <div className="border-t border-gray-200 pt-4 mt-4">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">Equal Employment Opportunity (Optional)</h3>
+
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Gender
+            </label>
+            <select
+              value={profile.gender}
+              onChange={(e) => setProfile({ ...profile, gender: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">Select...</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+              <option value="Non-binary">Non-binary</option>
+              <option value="Prefer not to answer">Prefer not to answer</option>
+            </select>
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Race/Ethnicity
+            </label>
+            <select
+              value={profile.race}
+              onChange={(e) => setProfile({ ...profile, race: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">Select...</option>
+              <option value="Hispanic or Latino">Hispanic or Latino</option>
+              <option value="White">White</option>
+              <option value="Black or African American">Black or African American</option>
+              <option value="Native Hawaiian or Other Pacific Islander">Native Hawaiian or Other Pacific Islander</option>
+              <option value="Asian">Asian</option>
+              <option value="American Indian or Alaska Native">American Indian or Alaska Native</option>
+              <option value="Two or More Races">Two or More Races</option>
+              <option value="Prefer not to answer">Prefer not to answer</option>
+            </select>
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Veteran Status
+            </label>
+            <select
+              value={profile.veteranStatus}
+              onChange={(e) => setProfile({ ...profile, veteranStatus: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">Select...</option>
+              <option value="I am not a protected veteran">I am not a protected veteran</option>
+              <option value="I identify as one or more of the classifications of a protected veteran">I identify as one or more of the classifications of a protected veteran</option>
+              <option value="Prefer not to answer">Prefer not to answer</option>
+            </select>
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Disability Status
+            </label>
+            <select
+              value={profile.disabilityStatus}
+              onChange={(e) => setProfile({ ...profile, disabilityStatus: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">Select...</option>
+              <option value="Yes, I have a disability (or previously had a disability)">Yes, I have a disability (or previously had a disability)</option>
+              <option value="No, I do not have a disability">No, I do not have a disability</option>
+              <option value="Prefer not to answer">Prefer not to answer</option>
+            </select>
+          </div>
         </div>
 
         <button

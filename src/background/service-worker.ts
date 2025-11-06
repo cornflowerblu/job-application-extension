@@ -40,6 +40,10 @@ interface UserProfile {
   resume?: string;
   workAuthorization?: string;
   willingToRelocate?: string;
+  gender?: string;
+  race?: string;
+  veteranStatus?: string;
+  disabilityStatus?: string;
 }
 
 interface Fill {
@@ -308,7 +312,11 @@ function constructPrompt(formData: ExtractedFormData, profile: UserProfile): str
   const safeResume = sanitizeForPrompt(profile.resume || '');
   const safeWorkAuth = sanitizeForPrompt(profile.workAuthorization || 'Not specified');
   const safeRelocate = sanitizeForPrompt(profile.willingToRelocate || 'Not specified');
-  
+  const safeGender = sanitizeForPrompt(profile.gender || 'Not specified');
+  const safeRace = sanitizeForPrompt(profile.race || 'Not specified');
+  const safeVeteranStatus = sanitizeForPrompt(profile.veteranStatus || 'Not specified');
+  const safeDisabilityStatus = sanitizeForPrompt(profile.disabilityStatus || 'Not specified');
+
   const safeJobTitle = sanitizeForPrompt(formData.jobPosting?.title || 'Not provided');
   const safeJobDescription = sanitizeForPrompt(formData.jobPosting?.description || 'Not provided');
 
@@ -321,6 +329,10 @@ Phone: ${safePhone}
 Resume: ${safeResume ? 'Provided (see below)' : 'Not provided'}
 Work Authorization: ${safeWorkAuth}
 Willing to Relocate: ${safeRelocate}
+Gender: ${safeGender}
+Race/Ethnicity: ${safeRace}
+Veteran Status: ${safeVeteranStatus}
+Disability Status: ${safeDisabilityStatus}
 
 ${safeResume ? `RESUME:\n${safeResume}\n` : ''}
 
