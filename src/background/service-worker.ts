@@ -173,10 +173,11 @@ async function generateFormFills(formData: ExtractedFormData, profile: UserProfi
         headers: {
           'x-api-key': apiKey as string,
           'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
           'content-type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'claude-3-5-sonnet-20241022',
+          model: 'claude-sonnet-4-5', // Alias points to latest Sonnet 4.5
           max_tokens: 4000,
           messages: [
             {
@@ -370,10 +371,11 @@ async function validateApiKey(apiKey: string): Promise<boolean> {
       headers: {
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'claude-3-haiku-20240307', // Use widely available model for validation
         max_tokens: 10,
         messages: [{ role: 'user', content: 'test' }],
       }),
@@ -381,6 +383,7 @@ async function validateApiKey(apiKey: string): Promise<boolean> {
 
     return response.ok || response.status === 429; // 429 = rate limited but valid key
   } catch (error) {
+    console.error('API validation error:', error);
     return false;
   }
 }

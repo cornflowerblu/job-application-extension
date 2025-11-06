@@ -27,3 +27,4 @@ yarn-error.log*
 
 # Testing
 coverage/
+test-resume.txt
