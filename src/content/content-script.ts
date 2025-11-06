@@ -53,21 +53,52 @@ chrome.runtime.onMessage.addListener((message: ContentMessage, _sender, sendResp
         sendResponse({ success: true, data: formData });
       })
       .catch((error: Error) => {
-        sendResponse({ success: false, error: error.message });
+        console.error('Form analysis failed:', error);
+        let errorMessage = 'Failed to analyze form on this page.';
+        
+        if (error.message.includes('No forms detected')) {
+          errorMessage = 'No forms found on this page. Please navigate to a job application page.';
+        } else if (error.message.includes('DOM access')) {
+          errorMessage = 'Unable to access page content. Please refresh and try again.';
+        } else if (error.message.includes('Permission denied')) {
+          errorMessage = 'Permission denied. Please check if the extension has access to this site.';
+        }
+        
+        sendResponse({ success: false, error: errorMessage });
       });
     return true; // Keep the message channel open for async response
   }
 
   if (message.type === 'FILL_FORM') {
-    fillForm(message.fills!)
+    if (!message.fills || !Array.isArray(message.fills)) {
+      sendResponse({ success: false, error: 'Invalid form fill data provided.' });
+      return;
+    }
+    
+    fillForm(message.fills)
       .then(() => {
         sendResponse({ success: true });
       })
       .catch((error: Error) => {
-        sendResponse({ success: false, error: error.message });
+        console.error('Form filling failed:', error);
+        let errorMessage = 'Failed to fill form fields.';
+        
+        if (error.message.includes('Element not found')) {
+          errorMessage = 'Some form fields could not be found. The page may have changed.';
+        } else if (error.message.includes('Read-only')) {
+          errorMessage = 'Some fields are read-only and cannot be filled automatically.';
+        } else if (error.message.includes('Permission denied')) {
+          errorMessage = 'Permission denied while accessing form fields.';
+        }
+        
+        sendResponse({ success: false, error: errorMessage });
       });
     return true;
   }
+
+  // Handle unknown message types
+  console.warn('Unknown message type:', message.type);
+  sendResponse({ success: false, error: 'Unknown command received.' });
 });
 
 /**
@@ -76,33 +107,64 @@ chrome.runtime.onMessage.addListener((message: ContentMessage, _sender, sendResp
 async function analyzeForm(): Promise<ExtractedFormData> {
   console.log('Analyzing form on page...');
 
-  // Find all forms on the page
-  const forms = document.querySelectorAll('form');
+  try {
+    // Check if we can access the DOM
+    if (!document || !document.body) {
+      throw new Error('DOM access not available. Page may still be loading.');
+    }
 
-  if (forms.length === 0) {
-    throw new Error('No forms detected on this page');
+    // Find all forms on the page
+    const forms = document.querySelectorAll('form');
+
+    if (forms.length === 0) {
+      // Try to find form-like structures that might not use <form> tags
+      const formLikeElements = document.querySelectorAll('[class*="form"], [id*="form"], [class*="application"], [id*="application"]');
+      
+      if (formLikeElements.length === 0) {
+        throw new Error('No forms detected on this page. Please navigate to a job application page with forms.');
+      }
+      
+      // If we found form-like elements, use the body as the form container
+      console.log('No <form> tags found, but detected form-like elements. Analyzing entire page...');
+    }
+
+    // Extract fields from the first form (MVP simplification)
+    const form = forms.length > 0 ? forms[0] : document.body;
+    const fields = extractFields(form as HTMLElement);
+    
+    if (fields.length === 0) {
+      throw new Error('No fillable form fields found on this page.');
+    }
+
+    const jobPosting = extractJobPosting();
+
+    console.log(`Successfully analyzed form: ${fields.length} fields found`);
+    
+    return {
+      fields,
+      jobPosting,
+      url: window.location.href,
+    };
+    
+  } catch (error) {
+    console.error('Error during form analysis:', error);
+    throw error instanceof Error ? error : new Error('Unknown error during form analysis');
   }
-
-  // Extract fields from the first form (MVP simplification)
-  const form = forms[0];
-  const fields = extractFields(form);
-  const jobPosting = extractJobPosting();
-
-  return {
-    fields,
-    jobPosting,
-    url: window.location.href,
-  };
 }
 
 /**
  * Extract form fields and their metadata
  */
-function extractFields(form: HTMLFormElement): FormField[] {
+function extractFields(container: HTMLElement): FormField[] {
   const fields: FormField[] = [];
 
   // Text inputs
-  form.querySelectorAll<HTMLInputElement>('input[type="text"], input[type="email"], input[type="tel"], input[type="number"], input:not([type])').forEach((input) => {
+  container.querySelectorAll<HTMLInputElement>('input[type="text"], input[type="email"], input[type="tel"], input[type="number"], input:not([type])').forEach((input) => {
+    // Skip if input is disabled or hidden
+    if (input.disabled || input.type === 'hidden' || input.style.display === 'none') {
+      return;
+    }
+    
     fields.push({
       id: input.id || input.name || `field-${fields.length}`,
       type: input.type || 'text',
@@ -114,7 +176,11 @@ function extractFields(form: HTMLFormElement): FormField[] {
   });
 
   // Textareas
-  form.querySelectorAll<HTMLTextAreaElement>('textarea').forEach((textarea) => {
+  container.querySelectorAll<HTMLTextAreaElement>('textarea').forEach((textarea) => {
+    if (textarea.disabled || textarea.style.display === 'none') {
+      return;
+    }
+    
     fields.push({
       id: textarea.id || textarea.name || `field-${fields.length}`,
       type: 'textarea',
@@ -126,7 +192,11 @@ function extractFields(form: HTMLFormElement): FormField[] {
   });
 
   // Select dropdowns
-  form.querySelectorAll<HTMLSelectElement>('select').forEach((select) => {
+  container.querySelectorAll<HTMLSelectElement>('select').forEach((select) => {
+    if (select.disabled || select.style.display === 'none') {
+      return;
+    }
+    
     const options = Array.from(select.options).map((opt) => opt.text || opt.value);
     fields.push({
       id: select.id || select.name || `field-${fields.length}`,
@@ -142,7 +212,11 @@ function extractFields(form: HTMLFormElement): FormField[] {
     options: string[];
   }
   const radioGroups = new Map<string, RadioGroup>();
-  form.querySelectorAll<HTMLInputElement>('input[type="radio"]').forEach((radio) => {
+  container.querySelectorAll<HTMLInputElement>('input[type="radio"]').forEach((radio) => {
+    if (radio.disabled || radio.style.display === 'none') {
+      return;
+    }
+    
     const name = radio.name;
     if (!radioGroups.has(name)) {
       radioGroups.set(name, {
@@ -153,12 +227,25 @@ function extractFields(form: HTMLFormElement): FormField[] {
         options: [],
       });
     }
-    radioGroups.get(name)!.options.push(radio.value || radio.id);
+    
+    const group = radioGroups.get(name)!;
+    const label = getFieldLabel(radio);
+    if (label && !group.options.includes(label)) {
+      group.options.push(label);
+    }
   });
-  radioGroups.forEach((group) => fields.push(group));
+
+  // Add radio groups to fields
+  radioGroups.forEach((group) => {
+    fields.push(group);
+  });
 
   // Checkboxes
-  form.querySelectorAll<HTMLInputElement>('input[type="checkbox"]').forEach((checkbox) => {
+  container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]').forEach((checkbox) => {
+    if (checkbox.disabled || checkbox.style.display === 'none') {
+      return;
+    }
+    
     fields.push({
       id: checkbox.id || checkbox.name || `field-${fields.length}`,
       type: 'checkbox',
@@ -192,7 +279,7 @@ function getFieldLabel(element: HTMLElement): string {
 
   // Try placeholder as fallback
   if ('placeholder' in element && element.placeholder) {
-    return element.placeholder;
+    return (element as HTMLInputElement | HTMLTextAreaElement).placeholder;
   }
 
   // Try name attribute
