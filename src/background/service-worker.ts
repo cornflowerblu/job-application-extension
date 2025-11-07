@@ -254,10 +254,10 @@ export async function generateFormFills(formData: ExtractedFormData, profile: Us
       lastError = error instanceof Error ? error : new Error('Unknown error occurred');
       
       // Don't retry for certain errors
-      if (lastError.message.includes('Invalid API key') ||
+      if (lastError.message.includes('Invalid API key. Please check your Anthropic API key in settings.') ||
           lastError.message.includes('Invalid response format') ||
-          lastError.message.includes('Claude returned an invalid response') ||
-          lastError.message.includes('Could not understand Claude\'s response format') ||
+          lastError.message.includes('Claude returned data in an unexpected format. The form suggestions could not be generated. Please try again.') ||
+          lastError.message.includes("Could not understand Claude's response format. This is likely a temporary issue. Please try again.") ||
           lastError.message.includes('Received an incomplete response from Claude API') ||
           lastError.message.includes('data in an unexpected format')) {
         throw lastError;
