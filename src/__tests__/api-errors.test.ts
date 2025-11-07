@@ -8,6 +8,7 @@ import { generateFormFills, fetchWithTimeout } from '../background/service-worke
 describe('API Error Handling', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.resetAllMocks();
   });
 
   const mockFormData = {
@@ -32,25 +33,25 @@ describe('API Error Handling', () => {
   };
 
   describe('AJH-78: Invalid API Key', () => {
-    it('should throw user-friendly error for 401 Unauthorized', async () => {
+    it('should throw API error message for 401 Unauthorized when provided', async () => {
       // Mock chrome.storage.local.get to return an API key
       (global.chrome.storage.local.get as jest.Mock).mockResolvedValue({ apiKey: 'invalid-key' });
 
       // Mock fetch to return 401
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (global.fetch as jest.Mock).mockResolvedValue({
         ok: false,
         status: 401,
-        json: async () => ({
+        json: jest.fn().mockResolvedValue({
           error: { message: 'Invalid authentication' },
         }),
       });
 
       await expect(generateFormFills(mockFormData, mockProfile)).rejects.toThrow(
-        'Invalid API key. Please check your Anthropic API key in settings.'
+        'Invalid authentication'
       );
     });
 
-    it('should not retry after 401 error', async () => {
+    it('should use fallback message for 401 when no API error message provided and not retry', async () => {
       (global.chrome.storage.local.get as jest.Mock).mockResolvedValue({ apiKey: 'invalid-key' });
 
       (global.fetch as jest.Mock).mockResolvedValue({
@@ -59,7 +60,9 @@ describe('API Error Handling', () => {
         json: async () => ({}),
       });
 
-      await expect(generateFormFills(mockFormData, mockProfile)).rejects.toThrow();
+      await expect(generateFormFills(mockFormData, mockProfile)).rejects.toThrow(
+        'Invalid API key. Please check your Anthropic API key in settings.'
+      );
 
       // Should only be called once (no retries for 401)
       expect(global.fetch).toHaveBeenCalledTimes(1);

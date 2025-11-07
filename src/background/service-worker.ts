@@ -196,7 +196,7 @@ export async function generateFormFills(formData: ExtractedFormData, profile: Us
         const errorData: AnthropicError = await response.json().catch(() => ({}));
         
         if (response.status === 401) {
-          throw new Error('Invalid API key. Please check your Anthropic API key in settings.');
+          throw new Error(errorData.error?.message || 'Invalid API key. Please check your Anthropic API key in settings.');
         } else if (response.status === 429) {
           const waitTime = Math.min(1000 * Math.pow(2, attempt), 10000); // Exponential backoff, max 10s
           console.log(`Rate limited. Waiting ${waitTime}ms before retry...`);
