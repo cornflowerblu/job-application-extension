@@ -255,11 +255,9 @@ export async function generateFormFills(formData: ExtractedFormData, profile: Us
       
       // Don't retry for certain errors
       if (lastError.message.includes('Invalid API key. Please check your Anthropic API key in settings.') ||
-          lastError.message.includes('Invalid response format') ||
           lastError.message.includes('Claude returned data in an unexpected format. The form suggestions could not be generated. Please try again.') ||
           lastError.message.includes("Could not understand Claude's response format. This is likely a temporary issue. Please try again.") ||
-          lastError.message.includes('Received an incomplete response from Claude API') ||
-          lastError.message.includes('data in an unexpected format')) {
+          lastError.message.includes('Received an incomplete response from Claude API')) {
         throw lastError;
       }
       
