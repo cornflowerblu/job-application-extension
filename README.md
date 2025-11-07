@@ -56,7 +56,23 @@ Run the test suite:
 npm test                # Run tests once
 npm run test:watch     # Run tests in watch mode
 npm run test:coverage  # Run tests with coverage report
+npm run test:ci        # Run full CI pipeline locally (recommended before pushing)
 ```
+
+### Individual CI Steps
+
+```bash
+npm run typecheck      # TypeScript type checking
+npm run lint           # ESLint code style checks (when configured)
+npm run build          # Production build validation
+```
+
+The `npm run test:ci` command runs the same checks as our GitHub Actions CI pipeline:
+1. **TypeScript Check** - Validates both main project and Vite config
+2. **Build** - Ensures production build succeeds
+3. **Tests** - Runs the full Jest test suite
+
+💡 **Tip**: Always run `npm run test:ci` before pushing to catch issues early!
 
 ### Continuous Integration
 

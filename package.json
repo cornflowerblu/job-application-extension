@@ -9,7 +9,10 @@
     "preview": "vite preview",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "typecheck": "tsc --noEmit --project tsconfig.json && tsc --noEmit --project tsconfig.node.json",
+    "lint": "echo 'No ESLint configuration found, skipping linting...'",
+    "test:ci": "npm run typecheck && npm run build && npm run test"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.1.17",
