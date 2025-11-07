@@ -242,8 +242,12 @@ export async function generateFormFills(formData: ExtractedFormData, profile: Us
         return fills;
 
       } catch (parseError) {
+        // Re-throw if it's already our custom error
+        if (parseError instanceof Error && parseError.message.includes('Claude returned data')) {
+          throw parseError;
+        }
         console.error('Failed to parse Claude response:', content);
-        throw new Error('Could not understand Claude\'s response format. This is likely a temporary issue. Please try again.');
+        throw new Error("Could not understand Claude's response format. This is likely a temporary issue. Please try again.");
       }
 
     } catch (error) {
@@ -254,8 +258,8 @@ export async function generateFormFills(formData: ExtractedFormData, profile: Us
           lastError.message.includes('Invalid response format') ||
           lastError.message.includes('Claude returned an invalid response') ||
           lastError.message.includes('Could not understand Claude\'s response format') ||
-          lastError.message.includes('incomplete response from Claude API') ||
-          lastError.message.includes('unexpected format')) {
+          lastError.message.includes('Received an incomplete response from Claude API') ||
+          lastError.message.includes('data in an unexpected format')) {
         throw lastError;
       }
       
