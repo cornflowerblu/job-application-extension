@@ -67,7 +67,9 @@ jobs:
         run: npm ci
 
       - name: Run TypeScript check
-        run: npx tsc --noEmit
+        run: |
+          npx tsc --noEmit --project tsconfig.json
+          npx tsc --noEmit --project tsconfig.node.json
 
       - name: Run ESLint (if configured)
         run: |
