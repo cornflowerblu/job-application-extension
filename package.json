@@ -6,7 +6,13 @@
   "scripts": {
     "dev": "vite build --watch --mode development",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "typecheck": "tsc --noEmit --project tsconfig.json && tsc --noEmit --project tsconfig.node.json",
+    "lint": "echo 'No ESLint configuration found, skipping linting...'",
+    "test:ci": "npm run typecheck && npm run build && npm run test"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.1.17",
@@ -14,14 +20,19 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
     "@types/chrome": "^0.0.280",
+    "@types/jest": "^30.0.0",
     "@types/node": "^24.10.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
+    "jest": "^30.2.0",
+    "jest-environment-jsdom": "^30.2.0",
     "postcss": "^8.4.49",
     "tailwindcss": "^4.0.0",
+    "ts-jest": "^29.4.5",
     "typescript": "^5.9.3",
     "vite": "^7.0.0"
   }

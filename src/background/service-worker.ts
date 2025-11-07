@@ -147,7 +147,7 @@ chrome.runtime.onMessage.addListener((message: WorkerMessage, _sender, sendRespo
 /**
  * Generate form fills using Claude API with retry logic
  */
-async function generateFormFills(formData: ExtractedFormData, profile: UserProfile): Promise<FillsResponse> {
+export async function generateFormFills(formData: ExtractedFormData, profile: UserProfile): Promise<FillsResponse> {
   console.log('Generating form fills with Claude...');
 
   // Get API key from storage
@@ -196,28 +196,28 @@ async function generateFormFills(formData: ExtractedFormData, profile: UserProfi
         const errorData: AnthropicError = await response.json().catch(() => ({}));
         
         if (response.status === 401) {
-          throw new Error('Invalid API key. Please check your Anthropic API key in settings.');
+          throw new Error(errorData.error?.message || 'Invalid API key. Please check your Anthropic API key in settings.');
         } else if (response.status === 429) {
           const waitTime = Math.min(1000 * Math.pow(2, attempt), 10000); // Exponential backoff, max 10s
           console.log(`Rate limited. Waiting ${waitTime}ms before retry...`);
           await new Promise(resolve => setTimeout(resolve, waitTime));
-          lastError = new Error('Rate limit exceeded. Retrying...');
+          lastError = new Error(`You've exceeded the API rate limit. We're automatically retrying (attempt ${attempt}/${maxRetries}). This usually resolves in a few seconds.`);
           continue;
         } else if (response.status >= 500) {
           const waitTime = 1000 * attempt; // Linear backoff for server errors
           console.log(`Server error (${response.status}). Waiting ${waitTime}ms before retry...`);
           await new Promise(resolve => setTimeout(resolve, waitTime));
-          lastError = new Error(`Server error (${response.status}). Retrying...`);
+          lastError = new Error(`Anthropic's API is temporarily unavailable (Error ${response.status}). Retrying automatically (attempt ${attempt}/${maxRetries})...`);
           continue;
         } else {
-          throw new Error(errorData.error?.message || `API call failed (${response.status})`);
+          throw new Error(errorData.error?.message || `API request failed with status ${response.status}. Please try again or check the Anthropic status page.`);
         }
       }
 
       const data: AnthropicResponse = await response.json();
-      
+
       if (!data.content || !data.content[0] || !data.content[0].text) {
-        throw new Error('Invalid response format from Claude API');
+        throw new Error('Received an incomplete response from Claude API. The response is missing expected content. Please try again.');
       }
 
       const content = data.content[0].text;
@@ -225,10 +225,10 @@ async function generateFormFills(formData: ExtractedFormData, profile: UserProfi
       // Parse the JSON response from Claude
       try {
         const fills: FillsResponse = JSON.parse(content);
-        
+
         // Validate response structure
         if (!fills.fills || !Array.isArray(fills.fills)) {
-          throw new Error('Invalid response structure from Claude');
+          throw new Error('Claude returned data in an unexpected format. The form suggestions could not be generated. Please try again.');
         }
 
         // Validate each fill
@@ -240,19 +240,24 @@ async function generateFormFills(formData: ExtractedFormData, profile: UserProfi
 
         console.log(`Successfully generated ${fills.fills.length} form fills`);
         return fills;
-        
+
       } catch (parseError) {
+        // Re-throw if it's already our custom error
+        if (parseError instanceof Error && parseError.message.includes('Claude returned data')) {
+          throw parseError;
+        }
         console.error('Failed to parse Claude response:', content);
-        throw new Error('Claude returned an invalid response. Please try again.');
+        throw new Error("Could not understand Claude's response format. This is likely a temporary issue. Please try again.");
       }
 
     } catch (error) {
       lastError = error instanceof Error ? error : new Error('Unknown error occurred');
       
       // Don't retry for certain errors
-      if (lastError.message.includes('Invalid API key') || 
-          lastError.message.includes('Invalid response format') ||
-          lastError.message.includes('Claude returned an invalid response')) {
+      if (lastError.message.includes('Invalid API key. Please check your Anthropic API key in settings.') ||
+          lastError.message.includes('Claude returned data in an unexpected format. The form suggestions could not be generated. Please try again.') ||
+          lastError.message.includes("Could not understand Claude's response format. This is likely a temporary issue. Please try again.") ||
+          lastError.message.includes('Received an incomplete response from Claude API')) {
         throw lastError;
       }
       
@@ -270,13 +275,13 @@ async function generateFormFills(formData: ExtractedFormData, profile: UserProfi
   }
 
   // If we get here, all retries failed
-  throw new Error(`Failed after ${maxRetries} attempts: ${lastError.message}`);
+  throw new Error(`Unable to complete the request after ${maxRetries} attempts. Last error: ${lastError.message}`);
 }
 
 /**
  * Fetch with timeout
  */
-async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
+export async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -290,7 +295,10 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: nu
   } catch (error) {
     clearTimeout(timeoutId);
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error('Request timed out. Please check your internet connection and try again.');
+      throw new Error('The request took too long and timed out after 30 seconds. Please check your internet connection and try again.');
+    }
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('Could not connect to the Anthropic API. Please check your internet connection and try again.');
     }
     throw error;
   }
