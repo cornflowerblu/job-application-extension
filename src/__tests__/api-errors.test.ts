@@ -281,7 +281,7 @@ describe('API Error Handling', () => {
       });
 
       await expect(generateFormFills(mockFormData, mockProfile)).rejects.toThrow(
-        /Could not understand Claude's response format/i
+        /Claude returned data in an unexpected format/i
       );
     });
 
@@ -303,7 +303,7 @@ describe('API Error Handling', () => {
       });
 
       await expect(generateFormFills(mockFormData, mockProfile)).rejects.toThrow(
-        /Could not understand Claude's response format/i
+        /Claude returned data in an unexpected format/i
       );
     }, 10000);
 
