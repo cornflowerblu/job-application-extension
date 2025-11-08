@@ -94,7 +94,12 @@ export function sanitizeUserProfile(profile: any): any {
     phone: sanitizePhone(profile.phone || ''),
     resume: sanitizeUserInput(profile.resume || '').slice(0, 20000),
     workAuthorization: sanitizeUserInput(profile.workAuthorization || '').slice(0, 100),
-    willingToRelocate: sanitizeUserInput(profile.willingToRelocate || '').slice(0, 100)
+    willingToRelocate: sanitizeUserInput(profile.willingToRelocate || '').slice(0, 100),
+    // EEO fields (optional)
+    gender: sanitizeUserInput(profile.gender || '').slice(0, 100),
+    race: sanitizeUserInput(profile.race || '').slice(0, 100),
+    veteranStatus: sanitizeUserInput(profile.veteranStatus || '').slice(0, 200),
+    disabilityStatus: sanitizeUserInput(profile.disabilityStatus || '').slice(0, 200)
   };
 }
 

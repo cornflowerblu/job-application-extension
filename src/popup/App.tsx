@@ -83,14 +83,16 @@ function App() {
       }
 
       setFormData(response.data);
-      
+      console.log('Form data set, fields found:', response.data.fields.length);
+
       // Get user profile and generate fills
       const { apiKey, profile } = await chrome.storage.local.get(['apiKey', 'profile']);
-      
+
       if (!apiKey || !profile) {
         throw new Error('Please configure your API key and profile first');
       }
 
+      console.log('Sending GENERATE_FILLS request to service worker...');
       // Send to service worker for AI processing
       const fillResponse = await chrome.runtime.sendMessage({
         type: 'GENERATE_FILLS',
@@ -98,10 +100,13 @@ function App() {
         profile: profile
       });
 
+      console.log('Received response from service worker:', fillResponse);
+
       if (!fillResponse.success) {
         throw new Error(fillResponse.error || 'Failed to generate form fills');
       }
 
+      console.log('Setting fills, count:', fillResponse.fills.fills.length);
       setFills(fillResponse.fills.fills);
       
     } catch (err) {
@@ -258,15 +263,19 @@ function SettingsView({ onBack, onConfigured }: { onBack: () => void; onConfigur
     veteranStatus: '',
     disabilityStatus: ''
   });
+  const [keyboardShortcutsEnabled, setKeyboardShortcutsEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
     // Load existing settings
-    chrome.storage.local.get(['apiKey', 'profile'], (result) => {
+    chrome.storage.local.get(['apiKey', 'profile', 'keyboardShortcutsEnabled'], (result) => {
       if (result.apiKey) setApiKey(result.apiKey);
       if (result.profile) setProfile({ ...profile, ...result.profile });
+      if (result.keyboardShortcutsEnabled !== undefined) {
+        setKeyboardShortcutsEnabled(result.keyboardShortcutsEnabled);
+      }
     });
   }, []);
 
@@ -328,7 +337,8 @@ function SettingsView({ onBack, onConfigured }: { onBack: () => void; onConfigur
       // Save settings
       await chrome.storage.local.set({
         apiKey: sanitizedApiKey,
-        profile: sanitizedProfile
+        profile: sanitizedProfile,
+        keyboardShortcutsEnabled: keyboardShortcutsEnabled
       });
 
       setSuccess(true);
@@ -465,6 +475,33 @@ function SettingsView({ onBack, onConfigured }: { onBack: () => void; onConfigur
             <option value="No">No</option>
             <option value="Depends on location">Depends on location</option>
           </select>
+        </div>
+
+        <div className="border-t border-gray-200 pt-4 mt-4">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">Keyboard Shortcuts</h3>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-700">Enable Keyboard Shortcuts</p>
+                <p className="text-xs text-gray-600 mt-1">
+                  Press <kbd className="px-2 py-1 bg-white border border-gray-300 rounded text-xs font-mono">Ctrl+Shift+E</kbd> (or <kbd className="px-2 py-1 bg-white border border-gray-300 rounded text-xs font-mono">⌘+Shift+E</kbd> on Mac) to analyze forms
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={keyboardShortcutsEnabled}
+                  onChange={(e) => setKeyboardShortcutsEnabled(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              You can customize shortcuts in chrome://extensions/shortcuts
+            </p>
+          </div>
         </div>
 
         <div className="border-t border-gray-200 pt-4 mt-4">
