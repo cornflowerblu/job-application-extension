@@ -104,9 +104,25 @@ src/__tests__/
     └── form-flow.test.ts             # Mocked integration tests
 
 e2e/
+├── fixtures/
+│   └── comprehensive-job-application.html  # Test form with all field types
 ├── form-filling.spec.ts              # E2E tests with mocked API
 └── real-api.spec.ts                  # REAL API E2E tests ⚠️
 ```
+
+### Comprehensive Test Form
+
+The test form (`e2e/fixtures/comprehensive-job-application.html`) includes extensive field coverage:
+- **Personal Info**: Name, email, phone, LinkedIn, portfolio, GitHub URLs
+- **Address**: Street, city, state, zip code
+- **Employment History**: 2 positions with company, title, start/end dates
+- **Education**: 2 entries with school, degree, field of study, graduation date, GPA
+- **Compensation**: Current salary, expected salary, start date availability
+- **Experience & Preferences**: Years of experience, relocation, cover letter
+- **EEO Fields**: Gender, race, veteran status, disability status
+- **Work Authorization**: Status and eligibility
+
+**Total**: 40+ form fields covering real-world job application scenarios
 
 ---
 

@@ -490,4 +490,243 @@ describe('Form Filling', () => {
       }
     });
   });
+
+  describe('Date Input Filling', () => {
+    it('should fill date input with YYYY-MM-DD format', async () => {
+      const input = document.createElement('input');
+      input.type = 'date';
+      input.id = 'start-date';
+      input.setAttribute('data-job-app-field-id', 'start-date');
+      document.body.appendChild(input);
+
+      // Simulate filling with proper format
+      input.value = '2020-01-15';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+
+      expect(input.value).toBe('2020-01-15');
+    });
+
+    it('should handle date input with various formats', async () => {
+      const input = document.createElement('input');
+      input.type = 'date';
+      input.id = 'graduation-date';
+      input.setAttribute('data-job-app-field-id', 'graduation-date');
+      document.body.appendChild(input);
+
+      // Date inputs require YYYY-MM-DD format
+      const formatted = '2022-05-20';
+
+      input.value = formatted;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+
+      expect(input.value).toBe('2022-05-20');
+    });
+
+    it('should handle empty date input', async () => {
+      const input = document.createElement('input');
+      input.type = 'date';
+      input.id = 'end-date';
+      input.setAttribute('data-job-app-field-id', 'end-date');
+      document.body.appendChild(input);
+
+      // Empty string is valid for optional date fields
+      input.value = '';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+
+      expect(input.value).toBe('');
+    });
+  });
+
+  describe('Number Input Filling', () => {
+    it('should fill number input with numeric value', async () => {
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.id = 'gpa';
+      input.setAttribute('data-job-app-field-id', 'gpa');
+      input.min = '0.0';
+      input.max = '4.0';
+      document.body.appendChild(input);
+
+      // Simulate filling
+      input.value = '3.75';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+
+      expect(input.value).toBe('3.75');
+    });
+
+    it('should handle salary number input', async () => {
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.id = 'expected-salary';
+      input.setAttribute('data-job-app-field-id', 'expected-salary');
+      input.min = '0';
+      input.step = '1000';
+      document.body.appendChild(input);
+
+      // Simulate filling with large number
+      input.value = '120000';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+
+      expect(input.value).toBe('120000');
+    });
+
+    it('should respect min/max constraints', async () => {
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.id = 'test-number';
+      input.setAttribute('data-job-app-field-id', 'test-number');
+      input.min = '0';
+      input.max = '100';
+      document.body.appendChild(input);
+
+      // Test value within range
+      input.value = '50';
+      expect(input.value).toBe('50');
+
+      // Values outside range are allowed by HTML but may trigger validation
+      input.value = '150';
+      expect(input.value).toBe('150'); // Browser allows but may show invalid state
+    });
+  });
+
+  describe('URL Input Filling', () => {
+    it('should fill URL input with valid URL', async () => {
+      const input = document.createElement('input');
+      input.type = 'url';
+      input.id = 'linkedin-url';
+      input.setAttribute('data-job-app-field-id', 'linkedin-url');
+      document.body.appendChild(input);
+
+      // Simulate filling with full URL
+      input.value = 'https://linkedin.com/in/johndoe';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+
+      expect(input.value).toBe('https://linkedin.com/in/johndoe');
+    });
+
+    it('should handle portfolio URL', async () => {
+      const input = document.createElement('input');
+      input.type = 'url';
+      input.id = 'portfolio-url';
+      input.setAttribute('data-job-app-field-id', 'portfolio-url');
+      document.body.appendChild(input);
+
+      // Simulate filling
+      input.value = 'https://johndoe.com';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+
+      expect(input.value).toBe('https://johndoe.com');
+    });
+
+    it('should handle GitHub URL', async () => {
+      const input = document.createElement('input');
+      input.type = 'url';
+      input.id = 'github-url';
+      input.setAttribute('data-job-app-field-id', 'github-url');
+      document.body.appendChild(input);
+
+      // Simulate filling
+      input.value = 'https://github.com/johndoe';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+
+      expect(input.value).toBe('https://github.com/johndoe');
+    });
+
+    it('should handle empty URL (optional field)', async () => {
+      const input = document.createElement('input');
+      input.type = 'url';
+      input.id = 'optional-url';
+      input.setAttribute('data-job-app-field-id', 'optional-url');
+      document.body.appendChild(input);
+
+      // Empty is valid for optional URL fields
+      input.value = '';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+
+      expect(input.value).toBe('');
+    });
+  });
+
+  describe('Multiple Employment/Education Entries', () => {
+    it('should fill multiple employment date fields independently', async () => {
+      const startDate1 = document.createElement('input');
+      startDate1.type = 'date';
+      startDate1.id = 'start-date-1';
+      startDate1.setAttribute('data-job-app-field-id', 'start-date-1');
+      document.body.appendChild(startDate1);
+
+      const endDate1 = document.createElement('input');
+      endDate1.type = 'date';
+      endDate1.id = 'end-date-1';
+      endDate1.setAttribute('data-job-app-field-id', 'end-date-1');
+      document.body.appendChild(endDate1);
+
+      const startDate2 = document.createElement('input');
+      startDate2.type = 'date';
+      startDate2.id = 'start-date-2';
+      startDate2.setAttribute('data-job-app-field-id', 'start-date-2');
+      document.body.appendChild(startDate2);
+
+      const endDate2 = document.createElement('input');
+      endDate2.type = 'date';
+      endDate2.id = 'end-date-2';
+      endDate2.setAttribute('data-job-app-field-id', 'end-date-2');
+      document.body.appendChild(endDate2);
+
+      // Fill all four date fields
+      startDate1.value = '2018-01-01';
+      startDate1.dispatchEvent(new Event('change', { bubbles: true }));
+
+      endDate1.value = '2020-12-31';
+      endDate1.dispatchEvent(new Event('change', { bubbles: true }));
+
+      startDate2.value = '2016-06-01';
+      startDate2.dispatchEvent(new Event('change', { bubbles: true }));
+
+      endDate2.value = '2017-12-31';
+      endDate2.dispatchEvent(new Event('change', { bubbles: true }));
+
+      expect(startDate1.value).toBe('2018-01-01');
+      expect(endDate1.value).toBe('2020-12-31');
+      expect(startDate2.value).toBe('2016-06-01');
+      expect(endDate2.value).toBe('2017-12-31');
+    });
+
+    it('should fill multiple GPA fields independently', async () => {
+      const gpa1 = document.createElement('input');
+      gpa1.type = 'number';
+      gpa1.id = 'gpa-1';
+      gpa1.setAttribute('data-job-app-field-id', 'gpa-1');
+      gpa1.min = '0.0';
+      gpa1.max = '4.0';
+      document.body.appendChild(gpa1);
+
+      const gpa2 = document.createElement('input');
+      gpa2.type = 'number';
+      gpa2.id = 'gpa-2';
+      gpa2.setAttribute('data-job-app-field-id', 'gpa-2');
+      gpa2.min = '0.0';
+      gpa2.max = '4.0';
+      document.body.appendChild(gpa2);
+
+      // Fill both GPA fields
+      gpa1.value = '3.8';
+      gpa1.dispatchEvent(new Event('change', { bubbles: true }));
+
+      gpa2.value = '3.5';
+      gpa2.dispatchEvent(new Event('change', { bubbles: true }));
+
+      expect(gpa1.value).toBe('3.8');
+      expect(gpa2.value).toBe('3.5');
+    });
+  });
 });

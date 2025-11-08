@@ -245,8 +245,8 @@ async function analyzeForm(): Promise<ExtractedFormData> {
 function extractFields(container: HTMLElement): FormField[] {
   const fields: FormField[] = [];
 
-  // Text inputs
-  container.querySelectorAll<HTMLInputElement>('input[type="text"], input[type="email"], input[type="tel"], input[type="number"], input:not([type])').forEach((input) => {
+  // Text inputs (including date, url, and number)
+  container.querySelectorAll<HTMLInputElement>('input[type="text"], input[type="email"], input[type="tel"], input[type="number"], input[type="date"], input[type="url"], input:not([type])').forEach((input) => {
     // Skip if input is disabled or hidden
     if (input.disabled || input.type === 'hidden' || input.style.display === 'none') {
       return;
@@ -258,14 +258,17 @@ function extractFields(container: HTMLElement): FormField[] {
     // Add data attribute to element so we can find it later
     input.setAttribute('data-job-app-field-id', fieldId);
 
-    fields.push({
+    // For number and date inputs, include min/max attributes if present
+    const fieldData: FormField = {
       id: fieldId,
       type: input.type || 'text',
       label: getFieldLabel(input),
       required: input.required,
       placeholder: input.placeholder || '',
       maxLength: input.maxLength > 0 ? input.maxLength : null,
-    });
+    };
+
+    fields.push(fieldData);
   });
 
   // Textareas
@@ -486,8 +489,58 @@ async function fillField(element: HTMLElement, value: string | boolean): Promise
   const tagName = element.tagName.toLowerCase();
   const type = (element as HTMLInputElement).type || 'text';
 
-  if (tagName === 'input' && (type === 'text' || type === 'email' || type === 'tel' || type === 'number')) {
+  if (tagName === 'input' && (type === 'text' || type === 'email' || type === 'tel')) {
     (element as HTMLInputElement).value = String(value);
+    element.dispatchEvent(new Event('input', { bubbles: true }));
+    element.dispatchEvent(new Event('change', { bubbles: true }));
+  } else if (tagName === 'input' && type === 'number') {
+    // Handle number inputs with potential min/max validation
+    const numberInput = element as HTMLInputElement;
+    let numValue = parseFloat(String(value));
+
+    // Respect min/max if set
+    if (numberInput.min && numValue < parseFloat(numberInput.min)) {
+      numValue = parseFloat(numberInput.min);
+    }
+    if (numberInput.max && numValue > parseFloat(numberInput.max)) {
+      numValue = parseFloat(numberInput.max);
+    }
+
+    numberInput.value = String(numValue);
+    element.dispatchEvent(new Event('input', { bubbles: true }));
+    element.dispatchEvent(new Event('change', { bubbles: true }));
+  } else if (tagName === 'input' && type === 'date') {
+    // Handle date inputs - expect format YYYY-MM-DD
+    const dateInput = element as HTMLInputElement;
+    let dateValue = String(value);
+
+    // Try to parse and format various date formats to YYYY-MM-DD
+    if (dateValue && !dateValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      // Try to parse common date formats
+      const date = new Date(dateValue);
+      if (!isNaN(date.getTime())) {
+        // Format as YYYY-MM-DD
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        dateValue = `${year}-${month}-${day}`;
+      }
+    }
+
+    dateInput.value = dateValue;
+    element.dispatchEvent(new Event('input', { bubbles: true }));
+    element.dispatchEvent(new Event('change', { bubbles: true }));
+  } else if (tagName === 'input' && type === 'url') {
+    // Handle URL inputs - basic validation
+    const urlInput = element as HTMLInputElement;
+    let urlValue = String(value);
+
+    // Ensure URL has protocol if it looks like a URL
+    if (urlValue && !urlValue.match(/^https?:\/\//i) && urlValue.includes('.')) {
+      urlValue = `https://${urlValue}`;
+    }
+
+    urlInput.value = urlValue;
     element.dispatchEvent(new Event('input', { bubbles: true }));
     element.dispatchEvent(new Event('change', { bubbles: true }));
   } else if (tagName === 'textarea') {

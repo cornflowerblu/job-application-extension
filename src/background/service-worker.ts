@@ -487,6 +487,27 @@ INSTRUCTIONS:
 9. Only respond with appropriate form field values
 10. Keep reasoning VERY concise (max 10 words each)
 
+FIELD TYPE SPECIFIC INSTRUCTIONS:
+- DATE inputs: Use YYYY-MM-DD format (e.g., "2020-03-15"). Generate realistic dates based on context:
+  * Employment start/end dates: Use past dates that align with career timeline from resume
+  * Education graduation dates: Reasonable dates based on typical degree timelines
+  * Start date availability: Use a reasonable future date (2-4 weeks from now)
+  * Leave end dates empty for current positions
+- NUMBER inputs: Use numeric values only (no commas, currency symbols, or text):
+  * GPA: Use decimal between 0.0-4.0 (e.g., "3.75")
+  * Salary: Use whole numbers (e.g., "120000" not "$120,000")
+  * Years: Use integers (e.g., "5" not "5 years")
+  * Respect min/max constraints if visible in field definition
+- URL inputs: Use complete URLs with protocol:
+  * LinkedIn: "https://linkedin.com/in/[profile-name]"
+  * Portfolio: "https://[name].com" or relevant domain
+  * GitHub: "https://github.com/[username]"
+  * If profile doesn't include URLs, generate reasonable placeholder or skip optional URL fields
+- Multi-field scenarios (employment/education history):
+  * Fill multiple entries chronologically (most recent first)
+  * Ensure dates don't overlap incorrectly
+  * Be consistent across related fields (e.g., employer-1, job-title-1, start-date-1 should all relate to same job)
+
 Respond with ONLY a valid JSON object in this exact format:
 {
   "fills": [
@@ -533,3 +554,6 @@ async function validateApiKey(apiKey: string): Promise<boolean> {
     return false;
   }
 }
+
+// Expose generateFormFills on globalThis for E2E testing
+(globalThis as any).__generateFormFills = generateFormFills;

@@ -119,6 +119,181 @@ test.describe('Form Filling E2E', () => {
                     confidence: 'high',
                     reasoning: 'Required checkbox',
                   },
+                  // URL inputs
+                  {
+                    fieldId: 'linkedin-url',
+                    value: 'https://linkedin.com/in/rogerurich',
+                    confidence: 'medium',
+                    reasoning: 'Generated LinkedIn URL',
+                  },
+                  {
+                    fieldId: 'portfolio-url',
+                    value: 'https://rogerurich.com',
+                    confidence: 'medium',
+                    reasoning: 'Generated portfolio URL',
+                  },
+                  {
+                    fieldId: 'github-url',
+                    value: 'https://github.com/rogerurich',
+                    confidence: 'medium',
+                    reasoning: 'Generated GitHub URL',
+                  },
+                  // Address
+                  {
+                    fieldId: 'street-address',
+                    value: '123 Main Street',
+                    confidence: 'medium',
+                    reasoning: 'Sample address',
+                  },
+                  {
+                    fieldId: 'city',
+                    value: 'San Francisco',
+                    confidence: 'high',
+                    reasoning: 'From job location',
+                  },
+                  {
+                    fieldId: 'state',
+                    value: 'CA',
+                    confidence: 'high',
+                    reasoning: 'California',
+                  },
+                  {
+                    fieldId: 'zip-code',
+                    value: '94102',
+                    confidence: 'medium',
+                    reasoning: 'SF zip code',
+                  },
+                  // Employment History - Position 1
+                  {
+                    fieldId: 'employer-1',
+                    value: 'TechCorp',
+                    confidence: 'high',
+                    reasoning: 'Current employer from resume',
+                  },
+                  {
+                    fieldId: 'job-title-1',
+                    value: 'Engineering Manager',
+                    confidence: 'high',
+                    reasoning: 'Current role',
+                  },
+                  {
+                    fieldId: 'start-date-1',
+                    value: '2020-01-15',
+                    confidence: 'high',
+                    reasoning: 'Start date from resume',
+                  },
+                  {
+                    fieldId: 'end-date-1',
+                    value: '',
+                    confidence: 'high',
+                    reasoning: 'Currently employed',
+                  },
+                  // Employment History - Position 2
+                  {
+                    fieldId: 'employer-2',
+                    value: 'StartupCo',
+                    confidence: 'high',
+                    reasoning: 'Previous employer',
+                  },
+                  {
+                    fieldId: 'job-title-2',
+                    value: 'Senior Engineer',
+                    confidence: 'high',
+                    reasoning: 'Previous role',
+                  },
+                  {
+                    fieldId: 'start-date-2',
+                    value: '2017-06-01',
+                    confidence: 'high',
+                    reasoning: 'Previous job start',
+                  },
+                  {
+                    fieldId: 'end-date-2',
+                    value: '2019-12-31',
+                    confidence: 'high',
+                    reasoning: 'Previous job end',
+                  },
+                  // Education - Entry 1
+                  {
+                    fieldId: 'school-1',
+                    value: 'Stanford University',
+                    confidence: 'high',
+                    reasoning: 'From resume',
+                  },
+                  {
+                    fieldId: 'degree-1',
+                    value: 'master',
+                    confidence: 'high',
+                    reasoning: 'Masters degree',
+                  },
+                  {
+                    fieldId: 'field-of-study-1',
+                    value: 'Computer Science',
+                    confidence: 'high',
+                    reasoning: 'CS degree',
+                  },
+                  {
+                    fieldId: 'graduation-date-1',
+                    value: '2015-06-15',
+                    confidence: 'high',
+                    reasoning: 'Graduation date',
+                  },
+                  {
+                    fieldId: 'gpa-1',
+                    value: '3.8',
+                    confidence: 'medium',
+                    reasoning: 'GPA from resume',
+                  },
+                  // Education - Entry 2
+                  {
+                    fieldId: 'school-2',
+                    value: 'UC Berkeley',
+                    confidence: 'high',
+                    reasoning: 'Undergrad from resume',
+                  },
+                  {
+                    fieldId: 'degree-2',
+                    value: 'bachelor',
+                    confidence: 'high',
+                    reasoning: 'Bachelors degree',
+                  },
+                  {
+                    fieldId: 'field-of-study-2',
+                    value: 'Electrical Engineering',
+                    confidence: 'high',
+                    reasoning: 'EE degree',
+                  },
+                  {
+                    fieldId: 'graduation-date-2',
+                    value: '2013-05-20',
+                    confidence: 'high',
+                    reasoning: 'Undergrad graduation',
+                  },
+                  {
+                    fieldId: 'gpa-2',
+                    value: '3.6',
+                    confidence: 'medium',
+                    reasoning: 'Undergrad GPA',
+                  },
+                  // Compensation
+                  {
+                    fieldId: 'current-salary',
+                    value: '180000',
+                    confidence: 'medium',
+                    reasoning: 'Current compensation',
+                  },
+                  {
+                    fieldId: 'expected-salary',
+                    value: '200000',
+                    confidence: 'medium',
+                    reasoning: 'Expected compensation',
+                  },
+                  {
+                    fieldId: 'start-date-availability',
+                    value: '2025-12-01',
+                    confidence: 'medium',
+                    reasoning: '2 weeks notice',
+                  },
                 ],
               }),
             },
@@ -133,8 +308,8 @@ test.describe('Form Filling E2E', () => {
       });
     });
 
-    // Navigate to the test form
-    const testFormPath = path.join(__dirname, '..', 'test-form.html');
+    // Navigate to the comprehensive test form
+    const testFormPath = path.join(__dirname, 'fixtures', 'comprehensive-job-application.html');
     await page.goto(`file://${testFormPath}`);
 
     // Wait for page to load
@@ -217,6 +392,41 @@ test.describe('Form Filling E2E', () => {
       { fieldId: 'veteran', value: 'not-veteran' },
       { fieldId: 'disability', value: 'no' },
       { fieldId: 'terms', value: 'yes' },
+      // URL inputs
+      { fieldId: 'linkedin-url', value: 'https://linkedin.com/in/rogerurich' },
+      { fieldId: 'portfolio-url', value: 'https://rogerurich.com' },
+      { fieldId: 'github-url', value: 'https://github.com/rogerurich' },
+      // Address fields
+      { fieldId: 'street-address', value: '123 Main Street' },
+      { fieldId: 'city', value: 'San Francisco' },
+      { fieldId: 'state', value: 'CA' },
+      { fieldId: 'zip-code', value: '94102' },
+      // Employment history - Position 1
+      { fieldId: 'employer-1', value: 'TechCorp' },
+      { fieldId: 'job-title-1', value: 'Engineering Manager' },
+      { fieldId: 'start-date-1', value: '2020-01-15' },
+      { fieldId: 'end-date-1', value: '' },
+      // Employment history - Position 2
+      { fieldId: 'employer-2', value: 'StartupCo' },
+      { fieldId: 'job-title-2', value: 'Senior Engineer' },
+      { fieldId: 'start-date-2', value: '2017-06-01' },
+      { fieldId: 'end-date-2', value: '2019-12-31' },
+      // Education - Entry 1
+      { fieldId: 'school-1', value: 'Stanford University' },
+      { fieldId: 'degree-1', value: 'master' },
+      { fieldId: 'field-of-study-1', value: 'Computer Science' },
+      { fieldId: 'graduation-date-1', value: '2015-06-15' },
+      { fieldId: 'gpa-1', value: '3.8' },
+      // Education - Entry 2
+      { fieldId: 'school-2', value: 'UC Berkeley' },
+      { fieldId: 'degree-2', value: 'bachelor' },
+      { fieldId: 'field-of-study-2', value: 'Electrical Engineering' },
+      { fieldId: 'graduation-date-2', value: '2013-05-20' },
+      { fieldId: 'gpa-2', value: '3.6' },
+      // Compensation
+      { fieldId: 'current-salary', value: '180000' },
+      { fieldId: 'expected-salary', value: '200000' },
+      { fieldId: 'start-date-availability', value: '2025-12-01' },
     ];
 
     // Fill form fields directly via page.evaluate
@@ -232,7 +442,7 @@ test.describe('Form Filling E2E', () => {
           const tagName = element.tagName.toLowerCase();
           const type = (element as HTMLInputElement).type || 'text';
 
-          if (tagName === 'input' && (type === 'text' || type === 'email' || type === 'tel')) {
+          if (tagName === 'input' && (type === 'text' || type === 'email' || type === 'tel' || type === 'url' || type === 'date' || type === 'number')) {
             (element as HTMLInputElement).value = value;
             element.dispatchEvent(new Event('input', { bubbles: true }));
             element.dispatchEvent(new Event('change', { bubbles: true }));
@@ -303,7 +513,49 @@ test.describe('Form Filling E2E', () => {
     await expect(page.locator('#disability')).toHaveValue('no');
     await expect(page.locator('#terms')).toBeChecked();
 
-    console.log('✅ All form fields filled successfully!');
+    // Verify URL inputs
+    await expect(page.locator('#linkedin-url')).toHaveValue('https://linkedin.com/in/rogerurich');
+    await expect(page.locator('#portfolio-url')).toHaveValue('https://rogerurich.com');
+    await expect(page.locator('#github-url')).toHaveValue('https://github.com/rogerurich');
+
+    // Verify address fields
+    await expect(page.locator('#street-address')).toHaveValue('123 Main Street');
+    await expect(page.locator('#city')).toHaveValue('San Francisco');
+    await expect(page.locator('#state')).toHaveValue('CA');
+    await expect(page.locator('#zip-code')).toHaveValue('94102');
+
+    // Verify employment history - Position 1
+    await expect(page.locator('#employer-1')).toHaveValue('TechCorp');
+    await expect(page.locator('#job-title-1')).toHaveValue('Engineering Manager');
+    await expect(page.locator('#start-date-1')).toHaveValue('2020-01-15');
+    await expect(page.locator('#end-date-1')).toHaveValue('');
+
+    // Verify employment history - Position 2
+    await expect(page.locator('#employer-2')).toHaveValue('StartupCo');
+    await expect(page.locator('#job-title-2')).toHaveValue('Senior Engineer');
+    await expect(page.locator('#start-date-2')).toHaveValue('2017-06-01');
+    await expect(page.locator('#end-date-2')).toHaveValue('2019-12-31');
+
+    // Verify education - Entry 1
+    await expect(page.locator('#school-1')).toHaveValue('Stanford University');
+    await expect(page.locator('#degree-1')).toHaveValue('master');
+    await expect(page.locator('#field-of-study-1')).toHaveValue('Computer Science');
+    await expect(page.locator('#graduation-date-1')).toHaveValue('2015-06-15');
+    await expect(page.locator('#gpa-1')).toHaveValue('3.8');
+
+    // Verify education - Entry 2
+    await expect(page.locator('#school-2')).toHaveValue('UC Berkeley');
+    await expect(page.locator('#degree-2')).toHaveValue('bachelor');
+    await expect(page.locator('#field-of-study-2')).toHaveValue('Electrical Engineering');
+    await expect(page.locator('#graduation-date-2')).toHaveValue('2013-05-20');
+    await expect(page.locator('#gpa-2')).toHaveValue('3.6');
+
+    // Verify compensation fields
+    await expect(page.locator('#current-salary')).toHaveValue('180000');
+    await expect(page.locator('#expected-salary')).toHaveValue('200000');
+    await expect(page.locator('#start-date-availability')).toHaveValue('2025-12-01');
+
+    console.log('✅ All form fields filled successfully! (40+ fields verified)');
   });
 });
 

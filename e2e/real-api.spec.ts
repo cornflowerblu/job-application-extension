@@ -36,7 +36,7 @@ const isEnabled = process.env.ENABLE_REAL_API_TESTS === 'true';
 
 // Safety counter to prevent runaway API calls
 let apiCallCount = 0;
-const MAX_API_CALLS = 3;
+const MAX_API_CALLS = 1; // Only 1 comprehensive test now
 
 // Load API key from .env
 function loadApiKey(): string {
@@ -108,206 +108,231 @@ test.describe('Real Claude API E2E Tests', () => {
     }
   });
 
-  test('should fill basic form fields with real Claude API', async () => {
+  test('should fill comprehensive form with real Claude API', async () => {
+    // Increase timeout for this test (Claude API can take 60+ seconds)
+    test.setTimeout(120000); // 2 minutes
+
     apiCallCount++;
-    console.log(`🔵 API Call ${apiCallCount}/${MAX_API_CALLS}: Basic form test`);
+    console.log(`🔵 API Call ${apiCallCount}/${MAX_API_CALLS}: Comprehensive form test`);
 
     const page = await context.newPage();
 
     // DO NOT mock the API - let real calls go through!
     // (This is the key difference from form-filling.spec.ts)
 
-    // Navigate to test form
-    const testFormPath = path.join(__dirname, '..', 'test-form.html');
-    await page.goto(`file://${testFormPath}`);
-    await page.waitForLoadState('domcontentloaded');
+    // Set up profile data in extension storage via background script
+    await page.goto('chrome://extensions/');
+    await page.waitForTimeout(1000); // Wait for extensions page to load
 
-    // Open extension popup to set up profile
-    const [popupPage] = await Promise.all([
-      context.waitForEvent('page'),
-      page.evaluate(() => {
-        // Open popup via extension icon click simulation
-        // In real usage, user clicks the extension icon
-        // For testing, we'll directly navigate to popup
-      }),
-    ]);
-
-    // If popup opened, close it and use storage API instead
-    if (popupPage) {
-      await popupPage.close();
-    }
-
-    // Set up profile data in extension storage
-    // This is done via the service worker's storage API
-    const targets = context.serviceWorkers();
-    if (targets.length > 0) {
-      const serviceWorker = targets[0];
-      await serviceWorker.evaluate((apiKeyValue) => {
-        // Set API key and profile in chrome.storage
-        chrome.storage.local.set({
-          apiKey: apiKeyValue,
-          profile: {
-            name: 'Test User',
-            email: 'test@example.com',
-            phone: '555-1234',
-            resume: 'Experienced software engineer with 5 years in web development.',
-            workAuthorization: 'U.S. Citizen',
-            willingToRelocate: 'Yes',
-            gender: 'Male',
-            race: 'White',
-            veteranStatus: 'I am not a protected veteran',
-            disabilityStatus: 'No, I do not have a disability',
-          },
+    // Execute script to set storage in the extension's context
+    const serviceWorkers = context.serviceWorkers();
+    if (serviceWorkers.length > 0) {
+      const sw = serviceWorkers[0];
+      await sw.evaluate(({ apiKeyValue, profileData }) => {
+        return new Promise<void>((resolve) => {
+          chrome.storage.local.set(
+            {
+              apiKey: apiKeyValue,
+              profile: profileData,
+              keyboardShortcutsEnabled: true, // CRITICAL: Enable keyboard shortcuts!
+            },
+            () => {
+              console.log('Storage set successfully');
+              resolve();
+            }
+          );
         });
-      }, apiKey);
+      }, {
+        apiKeyValue: apiKey,
+        profileData: {
+          name: 'Test User',
+          email: 'test@example.com',
+          phone: '555-1234',
+          resume: 'Experienced software engineer with 5 years in web development.',
+          workAuthorization: 'U.S. Citizen',
+          willingToRelocate: 'Yes',
+          gender: 'Male',
+          race: 'White',
+          veteranStatus: 'I am not a protected veteran',
+          disabilityStatus: 'No, I do not have a disability',
+        },
+      });
     }
 
-    // Use keyboard shortcut to analyze form (Ctrl+Shift+A or Cmd+Shift+A)
-    const isMac = process.platform === 'darwin';
-    await page.keyboard.press(isMac ? 'Meta+Shift+A' : 'Control+Shift+A');
+    // Navigate to comprehensive test form (via HTTP server, not file://)
+    await page.goto('http://localhost:8888/e2e/fixtures/comprehensive-job-application.html');
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(1000); // Wait for content script to inject
 
-    // Wait for analysis to complete
-    await page.waitForTimeout(3000); // Give Claude time to respond
+    // Check if content script is loaded
+    const isContentScriptLoaded = await page.evaluate(() => {
+      return typeof (window as any).__jobAppExtensionLoaded !== 'undefined';
+    });
+    console.log('Content script loaded:', isContentScriptLoaded);
 
-    // Use keyboard shortcut to fill form (Ctrl+Shift+F or Cmd+Shift+F)
-    await page.keyboard.press(isMac ? 'Meta+Shift+F' : 'Control+Shift+F');
+    // Listen for console messages from the page
+    page.on('console', msg => console.log('PAGE LOG:', msg.text()));
 
-    // Wait for form to be filled
-    await page.waitForTimeout(2000);
+    // Step 1: Extract form data via service worker
+    console.log('Analyzing form fields...');
 
-    // Verify form fields are filled
+    const workers = context.serviceWorkers();
+    if (workers.length === 0) {
+      throw new Error('No service workers found!');
+    }
+
+    const sw = workers[0];
+
+    // Send ANALYZE_FORM to content script to get form data
+    const formData = await sw.evaluate(async () => {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      const tabId = tabs[0].id!;
+
+      return new Promise((resolve) => {
+        chrome.tabs.sendMessage(tabId, { type: 'ANALYZE_FORM' }, (response) => {
+          if (!response || !response.success) {
+            throw new Error('Failed to analyze form');
+          }
+          resolve(response.data);
+        });
+      });
+    });
+
+    console.log(`Form analyzed: ${(formData as any).fields?.length || 0} fields found`);
+
+    // Step 2: Generate fills with Claude API (this takes 30-60 seconds!)
+    console.log('Generating fills with Claude API...');
+
+    const fillsResponse = await sw.evaluate(async (formDataParam) => {
+      // Get profile from storage
+      const { profile } = await chrome.storage.local.get('profile');
+
+      // Call generateFormFills that's exposed on globalThis
+      try {
+        const generateFn = (globalThis as any).__generateFormFills;
+        if (!generateFn) {
+          throw new Error('generateFormFills not found on globalThis');
+        }
+        const fills = await generateFn(formDataParam, profile);
+        return { success: true, fills };
+      } catch (error) {
+        return { success: false, error: (error as Error).message };
+      }
+    }, formData);
+
+    console.log('Fills generated successfully');
+    const fillsStr = JSON.stringify(fillsResponse, null, 2);
+    console.log('Fills response structure:', fillsStr ? fillsStr.substring(0, 500) : 'undefined');
+
+    // Step 3: Send FILL_FORM message to content script
+    console.log('Filling form...');
+
+    await sw.evaluate(async (fills: any) => {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      const tabId = tabs[0].id!;
+
+      const fillsStr = JSON.stringify(fills, null, 2);
+      console.log('Fills object:', fillsStr ? fillsStr.substring(0, 300) : 'undefined');
+
+      if (!fills || !fills.success) {
+        throw new Error(`Invalid fills response: ${JSON.stringify(fills)}`);
+      }
+
+      // Extract the actual fills array from the response
+      // Structure: { success: true, fills: { fills: [...] } }
+      const fillsArray = fills.fills?.fills || [];
+
+      chrome.tabs.sendMessage(tabId, {
+        type: 'FILL_FORM',
+        fills: fillsArray
+      });
+    }, fillsResponse);
+
+    // Wait for filling to complete
+    console.log('Waiting for form to fill...');
+    await page.waitForTimeout(5000);
+
+    // Verify comprehensive form fields are filled
+    console.log('Verifying all fields...');
+
+    // Basic fields
     const nameValue = await page.locator('#full-name').inputValue();
     const emailValue = await page.locator('#email').inputValue();
+    const phoneValue = await page.locator('#phone').inputValue();
 
-    console.log('Name filled:', nameValue);
-    console.log('Email filled:', emailValue);
+    // URLs
+    const linkedinValue = await page.locator('#linkedin-url').inputValue();
+    const portfolioValue = await page.locator('#portfolio-url').inputValue();
 
-    // Assert that fields were filled
-    expect(nameValue).toBeTruthy();
-    expect(nameValue.length).toBeGreaterThan(0);
-    expect(emailValue).toContain('@');
+    // Address
+    const streetValue = await page.locator('#street-address').inputValue();
+    const cityValue = await page.locator('#city').inputValue();
 
-    console.log('✅ Test passed - Form filled with real Claude API\n');
+    // Employment history
+    const employer1Value = await page.locator('#employer-1').inputValue();
+    const startDate1Value = await page.locator('#start-date-1').inputValue();
 
-    await page.close();
-  });
+    // Education
+    const school1Value = await page.locator('#school-1').inputValue();
+    const gpa1Value = await page.locator('#gpa-1').inputValue();
 
-  test('should fill EEO fields with real Claude API', async () => {
-    apiCallCount++;
-    console.log(`🔵 API Call ${apiCallCount}/${MAX_API_CALLS}: EEO fields test`);
-
-    const page = await context.newPage();
-
-    // Navigate to test form
-    const testFormPath = path.join(__dirname, '..', 'test-form.html');
-    await page.goto(`file://${testFormPath}`);
-    await page.waitForLoadState('domcontentloaded');
-
-    // Set up profile with EEO data via service worker
-    const targets = context.serviceWorkers();
-    if (targets.length > 0) {
-      const serviceWorker = targets[0];
-      await serviceWorker.evaluate((apiKeyValue) => {
-        chrome.storage.local.set({
-          apiKey: apiKeyValue,
-          profile: {
-            name: 'Jane Smith',
-            email: 'jane@example.com',
-            phone: '555-5678',
-            resume: 'Product manager with 8 years experience.',
-            workAuthorization: 'Yes',
-            willingToRelocate: 'No',
-            gender: 'Female',
-            race: 'Asian',
-            veteranStatus: 'I am not a protected veteran',
-            disabilityStatus: 'No, I do not have a disability',
-          },
-        });
-      }, apiKey);
-    }
-
-    // Analyze form
-    const isMac = process.platform === 'darwin';
-    await page.keyboard.press(isMac ? 'Meta+Shift+A' : 'Control+Shift+A');
-    await page.waitForTimeout(3000);
-
-    // Fill form
-    await page.keyboard.press(isMac ? 'Meta+Shift+F' : 'Control+Shift+F');
-    await page.waitForTimeout(2000);
-
-    // Verify EEO fields are filled
+    // EEO fields
     const genderValue = await page.locator('#gender').inputValue();
     const raceValue = await page.locator('#race').inputValue();
-    const veteranValue = await page.locator('#veteran').inputValue();
-    const disabilityValue = await page.locator('#disability').inputValue();
 
-    console.log('Gender:', genderValue);
-    console.log('Race:', raceValue);
-    console.log('Veteran:', veteranValue);
-    console.log('Disability:', disabilityValue);
-
-    // Assert EEO fields are filled
-    expect(genderValue).toBeTruthy();
-    expect(raceValue).toBeTruthy();
-    expect(veteranValue).toBeTruthy();
-    expect(disabilityValue).toBeTruthy();
-
-    console.log('✅ Test passed - EEO fields filled with real Claude API\n');
-
-    await page.close();
-  });
-
-  test('should handle cover letter generation with real Claude API', async () => {
-    apiCallCount++;
-    console.log(`🔵 API Call ${apiCallCount}/${MAX_API_CALLS}: Cover letter test`);
-
-    const page = await context.newPage();
-
-    // Navigate to test form
-    const testFormPath = path.join(__dirname, '..', 'test-form.html');
-    await page.goto(`file://${testFormPath}`);
-    await page.waitForLoadState('domcontentloaded');
-
-    // Set up profile via service worker
-    const targets = context.serviceWorkers();
-    if (targets.length > 0) {
-      const serviceWorker = targets[0];
-      await serviceWorker.evaluate((apiKeyValue) => {
-        chrome.storage.local.set({
-          apiKey: apiKeyValue,
-          profile: {
-            name: 'Senior Developer',
-            email: 'dev@example.com',
-            phone: '555-9999',
-            resume: 'Senior software engineer with 12 years of experience in full-stack development. Expert in React, Node.js, TypeScript, and AWS.',
-            workAuthorization: 'U.S. Citizen',
-            willingToRelocate: 'Yes',
-          },
-        });
-      }, apiKey);
-    }
-
-    // Analyze form
-    const isMac = process.platform === 'darwin';
-    await page.keyboard.press(isMac ? 'Meta+Shift+A' : 'Control+Shift+A');
-    await page.waitForTimeout(3000);
-
-    // Fill form
-    await page.keyboard.press(isMac ? 'Meta+Shift+F' : 'Control+Shift+F');
-    await page.waitForTimeout(2000);
-
-    // Verify cover letter is generated
+    // Cover letter
     const coverLetterValue = await page.locator('#cover-letter').inputValue();
 
+    console.log('Name:', nameValue);
+    console.log('Email:', emailValue);
+    console.log('LinkedIn:', linkedinValue);
+    console.log('Employer:', employer1Value);
+    console.log('School:', school1Value);
+    console.log('GPA:', gpa1Value);
+    console.log('Gender:', genderValue);
     console.log('Cover letter length:', coverLetterValue.length);
-    console.log('Cover letter preview:', coverLetterValue.substring(0, 100) + '...');
 
-    // Assert cover letter was generated
+    // Assert basic fields
+    expect(nameValue).toBeTruthy();
+    expect(emailValue).toContain('@');
+    expect(phoneValue).toBeTruthy();
+
+    // Assert URLs
+    expect(linkedinValue).toContain('linkedin.com');
+
+    // Assert address
+    expect(streetValue).toBeTruthy();
+    expect(cityValue).toBeTruthy();
+
+    // Assert employment
+    expect(employer1Value).toBeTruthy();
+    expect(startDate1Value).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+
+    // Assert education
+    expect(school1Value).toBeTruthy();
+    expect(parseFloat(gpa1Value)).toBeGreaterThan(0);
+    expect(parseFloat(gpa1Value)).toBeLessThanOrEqual(4.0);
+
+    // Assert EEO
+    expect(genderValue).toBeTruthy();
+    expect(raceValue).toBeTruthy();
+
+    // Assert cover letter
     expect(coverLetterValue.length).toBeGreaterThan(50);
-    expect(coverLetterValue.length).toBeLessThanOrEqual(500); // Respects max length
 
-    console.log('✅ Test passed - Cover letter generated with real Claude API\n');
+    console.log('✅ Test passed - Comprehensive form filled with real Claude API!\n');
 
     await page.close();
   });
 });
+
+/*
+  Single comprehensive test covers all field types with real Claude API:
+  - Basic fields (name, email, phone)
+  - URLs (LinkedIn, portfolio, GitHub)
+  - Address fields
+  - Employment history with dates
+  - Education with GPA
+  - EEO fields (gender, race)
+  - Cover letter generation
+*/

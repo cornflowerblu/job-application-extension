@@ -365,4 +365,231 @@ describe('Form Field Extraction Without IDs', () => {
       expect(claudeResponseFieldId).toBe('full-name');
     });
   });
+
+  describe('Date Input Extraction', () => {
+    it('should extract date input type', () => {
+      const input = document.createElement('input');
+      input.type = 'date';
+      input.id = 'start-date';
+      document.body.appendChild(input);
+
+      const fieldId = input.id || input.name || 'job-app-field-0';
+      input.setAttribute('data-job-app-field-id', fieldId);
+
+      expect(fieldId).toBe('start-date');
+      expect(input.type).toBe('date');
+      expect(input.getAttribute('data-job-app-field-id')).toBe('start-date');
+    });
+
+    it('should handle date input without id', () => {
+      const input = document.createElement('input');
+      input.type = 'date';
+      input.name = 'graduation-date';
+      document.body.appendChild(input);
+
+      const fieldId = input.id || input.name || 'job-app-field-0';
+      input.setAttribute('data-job-app-field-id', fieldId);
+
+      expect(fieldId).toBe('graduation-date');
+      expect(input.type).toBe('date');
+    });
+
+    it('should generate fallback ID for date input without id or name', () => {
+      const input = document.createElement('input');
+      input.type = 'date';
+      document.body.appendChild(input);
+
+      const fieldId = input.id || input.name || 'job-app-field-0';
+      input.setAttribute('data-job-app-field-id', fieldId);
+
+      expect(fieldId).toBe('job-app-field-0');
+      expect(input.type).toBe('date');
+    });
+  });
+
+  describe('Number Input Extraction', () => {
+    it('should extract number input type with min/max', () => {
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.id = 'gpa';
+      input.min = '0.0';
+      input.max = '4.0';
+      input.step = '0.01';
+      document.body.appendChild(input);
+
+      const fieldId = input.id || input.name || 'job-app-field-0';
+      input.setAttribute('data-job-app-field-id', fieldId);
+
+      expect(fieldId).toBe('gpa');
+      expect(input.type).toBe('number');
+      expect(input.min).toBe('0.0');
+      expect(input.max).toBe('4.0');
+      expect(input.step).toBe('0.01');
+    });
+
+    it('should handle number input for salary', () => {
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.id = 'expected-salary';
+      input.min = '0';
+      input.step = '1000';
+      document.body.appendChild(input);
+
+      const fieldId = input.id || input.name || 'job-app-field-0';
+      input.setAttribute('data-job-app-field-id', fieldId);
+
+      expect(fieldId).toBe('expected-salary');
+      expect(input.type).toBe('number');
+    });
+
+    it('should generate fallback ID for number input without id', () => {
+      const input = document.createElement('input');
+      input.type = 'number';
+      document.body.appendChild(input);
+
+      const fieldId = input.id || input.name || 'job-app-field-0';
+      input.setAttribute('data-job-app-field-id', fieldId);
+
+      expect(fieldId).toBe('job-app-field-0');
+    });
+  });
+
+  describe('URL Input Extraction', () => {
+    it('should extract url input type', () => {
+      const input = document.createElement('input');
+      input.type = 'url';
+      input.id = 'linkedin-url';
+      input.placeholder = 'https://linkedin.com/in/yourprofile';
+      document.body.appendChild(input);
+
+      const fieldId = input.id || input.name || 'job-app-field-0';
+      input.setAttribute('data-job-app-field-id', fieldId);
+
+      expect(fieldId).toBe('linkedin-url');
+      expect(input.type).toBe('url');
+      expect(input.placeholder).toBe('https://linkedin.com/in/yourprofile');
+    });
+
+    it('should handle portfolio url input', () => {
+      const input = document.createElement('input');
+      input.type = 'url';
+      input.name = 'portfolio-url';
+      document.body.appendChild(input);
+
+      const fieldId = input.id || input.name || 'job-app-field-0';
+      input.setAttribute('data-job-app-field-id', fieldId);
+
+      expect(fieldId).toBe('portfolio-url');
+      expect(input.type).toBe('url');
+    });
+
+    it('should generate fallback ID for url input without id', () => {
+      const input = document.createElement('input');
+      input.type = 'url';
+      document.body.appendChild(input);
+
+      const fieldId = input.id || input.name || 'job-app-field-0';
+      input.setAttribute('data-job-app-field-id', fieldId);
+
+      expect(fieldId).toBe('job-app-field-0');
+    });
+  });
+
+  describe('Multi-Field Scenarios (Employment/Education History)', () => {
+    it('should handle multiple employment date inputs', () => {
+      const startDate1 = document.createElement('input');
+      startDate1.type = 'date';
+      startDate1.id = 'start-date-1';
+      document.body.appendChild(startDate1);
+
+      const endDate1 = document.createElement('input');
+      endDate1.type = 'date';
+      endDate1.id = 'end-date-1';
+      document.body.appendChild(endDate1);
+
+      const startDate2 = document.createElement('input');
+      startDate2.type = 'date';
+      startDate2.id = 'start-date-2';
+      document.body.appendChild(startDate2);
+
+      const endDate2 = document.createElement('input');
+      endDate2.type = 'date';
+      endDate2.id = 'end-date-2';
+      document.body.appendChild(endDate2);
+
+      // Simulate extraction
+      const fieldId1 = startDate1.id;
+      startDate1.setAttribute('data-job-app-field-id', fieldId1);
+
+      const fieldId2 = endDate1.id;
+      endDate1.setAttribute('data-job-app-field-id', fieldId2);
+
+      const fieldId3 = startDate2.id;
+      startDate2.setAttribute('data-job-app-field-id', fieldId3);
+
+      const fieldId4 = endDate2.id;
+      endDate2.setAttribute('data-job-app-field-id', fieldId4);
+
+      expect(fieldId1).toBe('start-date-1');
+      expect(fieldId2).toBe('end-date-1');
+      expect(fieldId3).toBe('start-date-2');
+      expect(fieldId4).toBe('end-date-2');
+
+      // Verify all can be found
+      expect(document.querySelector('[data-job-app-field-id="start-date-1"]')).toBe(startDate1);
+      expect(document.querySelector('[data-job-app-field-id="end-date-1"]')).toBe(endDate1);
+      expect(document.querySelector('[data-job-app-field-id="start-date-2"]')).toBe(startDate2);
+      expect(document.querySelector('[data-job-app-field-id="end-date-2"]')).toBe(endDate2);
+    });
+
+    it('should handle multiple education entries with GPA fields', () => {
+      const school1 = document.createElement('input');
+      school1.type = 'text';
+      school1.id = 'school-1';
+      document.body.appendChild(school1);
+
+      const gpa1 = document.createElement('input');
+      gpa1.type = 'number';
+      gpa1.id = 'gpa-1';
+      gpa1.min = '0.0';
+      gpa1.max = '4.0';
+      document.body.appendChild(gpa1);
+
+      const school2 = document.createElement('input');
+      school2.type = 'text';
+      school2.id = 'school-2';
+      document.body.appendChild(school2);
+
+      const gpa2 = document.createElement('input');
+      gpa2.type = 'number';
+      gpa2.id = 'gpa-2';
+      gpa2.min = '0.0';
+      gpa2.max = '4.0';
+      document.body.appendChild(gpa2);
+
+      // Simulate extraction
+      const fieldId1 = school1.id;
+      school1.setAttribute('data-job-app-field-id', fieldId1);
+
+      const fieldId2 = gpa1.id;
+      gpa1.setAttribute('data-job-app-field-id', fieldId2);
+
+      const fieldId3 = school2.id;
+      school2.setAttribute('data-job-app-field-id', fieldId3);
+
+      const fieldId4 = gpa2.id;
+      gpa2.setAttribute('data-job-app-field-id', fieldId4);
+
+      expect(fieldId1).toBe('school-1');
+      expect(fieldId2).toBe('gpa-1');
+      expect(fieldId3).toBe('school-2');
+      expect(fieldId4).toBe('gpa-2');
+
+      // Verify all can be found
+      expect(document.querySelector('[data-job-app-field-id="school-1"]')).toBe(school1);
+      expect(document.querySelector('[data-job-app-field-id="gpa-1"]')).toBe(gpa1);
+      expect(document.querySelector('[data-job-app-field-id="school-2"]')).toBe(school2);
+      expect(document.querySelector('[data-job-app-field-id="gpa-2"]')).toBe(gpa2);
+    });
+  });
 });
