@@ -43,26 +43,32 @@ interface ContentResponse {
 
 console.log('Job Application Assistant: Content script loaded');
 
-// Toast notification system
-let toastTimeout: ReturnType<typeof setTimeout> | null = null;
+// Toast notification system with race condition prevention
+const toastTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
+const TOAST_ID = 'job-app-assistant-toast';
+const TOAST_ANIMATION_MS = 300;
+const TOAST_MAX_ZINDEX = 2147483647;
 
 function showToast(message: string, type: 'info' | 'success' | 'error' = 'info', duration: number = 3000): void {
+  // Clear any existing timeouts for this toast
+  const existingTimeout = toastTimeouts.get(TOAST_ID);
+  if (existingTimeout) {
+    clearTimeout(existingTimeout);
+    toastTimeouts.delete(TOAST_ID);
+  }
+
   // Remove existing toast if any
-  const existingToast = document.getElementById('job-app-assistant-toast');
+  const existingToast = document.getElementById(TOAST_ID);
   if (existingToast) {
     existingToast.remove();
   }
 
-  // Clear existing timeout
-  if (toastTimeout) {
-    clearTimeout(toastTimeout);
-  }
-
   // Create toast element
   const toast = document.createElement('div');
-  toast.id = 'job-app-assistant-toast';
+  toast.id = TOAST_ID;
   toast.setAttribute('role', 'alert');
   toast.setAttribute('aria-live', 'polite');
+  toast.setAttribute('aria-atomic', 'true');
 
   // Set styles based on type
   const bgColors = {
@@ -83,7 +89,7 @@ function showToast(message: string, type: 'info' | 'success' | 'error' = 'info',
     font-size: 14px;
     font-weight: 500;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    z-index: 2147483647;
+    z-index: ${TOAST_MAX_ZINDEX};
     opacity: 0;
     transform: translateY(10px);
     transition: opacity 0.3s ease, transform 0.3s ease;
@@ -102,16 +108,28 @@ function showToast(message: string, type: 'info' | 'success' | 'error' = 'info',
   });
 
   // Auto-hide after duration
-  toastTimeout = setTimeout(() => {
+  const hideTimeout = setTimeout(() => {
     toast.style.opacity = '0';
     toast.style.transform = 'translateY(10px)';
-    setTimeout(() => {
+
+    const removeTimeout = setTimeout(() => {
       if (toast.parentNode) {
         toast.remove();
       }
-    }, 300);
+      toastTimeouts.delete(TOAST_ID);
+    }, TOAST_ANIMATION_MS);
+
+    toastTimeouts.set(TOAST_ID, removeTimeout);
   }, duration);
+
+  toastTimeouts.set(TOAST_ID, hideTimeout);
 }
+
+// Cleanup on unload
+window.addEventListener('unload', () => {
+  toastTimeouts.forEach(timeout => clearTimeout(timeout));
+  toastTimeouts.clear();
+});
 
 // Listen for messages from the popup or service worker
 chrome.runtime.onMessage.addListener((message: ContentMessage, _sender, sendResponse: (response: ContentResponse) => void) => {

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 
 // Import security utilities
+import { storeApiKeySecurely, retrieveApiKey } from '../utils/security';
 const sanitizeInput = (input: string, maxLength: number = 1000): string => {
   if (!input || typeof input !== 'string') return '';
   return input
@@ -58,8 +59,10 @@ function App() {
 
   useEffect(() => {
     // Check if extension is configured
-    chrome.storage.local.get(['apiKey', 'profile'], (result) => {
-      setIsConfigured(!!(result.apiKey && result.profile));
+    retrieveApiKey().then(apiKey => {
+      chrome.storage.local.get(['profile'], (result) => {
+        setIsConfigured(!!(apiKey && result.profile));
+      });
     });
   }, []);
 
@@ -86,7 +89,8 @@ function App() {
       console.log('Form data set, fields found:', response.data.fields.length);
 
       // Get user profile and generate fills
-      const { apiKey, profile } = await chrome.storage.local.get(['apiKey', 'profile']);
+      const apiKey = await retrieveApiKey();
+      const { profile } = await chrome.storage.local.get(['profile']);
 
       if (!apiKey || !profile) {
         throw new Error('Please configure your API key and profile first');
@@ -270,8 +274,10 @@ function SettingsView({ onBack, onConfigured }: { onBack: () => void; onConfigur
 
   useEffect(() => {
     // Load existing settings
-    chrome.storage.local.get(['apiKey', 'profile', 'keyboardShortcutsEnabled'], (result) => {
-      if (result.apiKey) setApiKey(result.apiKey);
+    retrieveApiKey().then(key => {
+      if (key) setApiKey(key);
+    });
+    chrome.storage.local.get(['profile', 'keyboardShortcutsEnabled'], (result) => {
       if (result.profile) setProfile({ ...profile, ...result.profile });
       if (result.keyboardShortcutsEnabled !== undefined) {
         setKeyboardShortcutsEnabled(result.keyboardShortcutsEnabled);
@@ -334,9 +340,9 @@ function SettingsView({ onBack, onConfigured }: { onBack: () => void; onConfigur
         throw new Error('Invalid API key. Please check your Anthropic API key.');
       }
 
-      // Save settings
+      // Save settings with encrypted API key
+      await storeApiKeySecurely(sanitizedApiKey);
       await chrome.storage.local.set({
-        apiKey: sanitizedApiKey,
         profile: sanitizedProfile,
         keyboardShortcutsEnabled: keyboardShortcutsEnabled
       });

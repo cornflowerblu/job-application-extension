@@ -3,13 +3,15 @@
  * Handles API calls to Claude and coordinates between popup and content scripts
  */
 
-import { 
-  sanitizeUserInput, 
-  sanitizeFormData, 
-  sanitizeUserProfile, 
+import {
+  sanitizeUserInput,
+  sanitizeFormData,
+  sanitizeUserProfile,
   validateApiKeyFormat,
-  RateLimiter 
+  RateLimiter,
+  retrieveApiKey
 } from '../utils/security.js';
+import { API_CONFIG, TIMING, USER_FRIENDLY_ERRORS } from '../utils/constants.js';
 
 // Type definitions
 interface FormField {
@@ -85,6 +87,9 @@ interface AnthropicResponse {
 }
 
 console.log('Job Application Assistant: Service worker loaded');
+
+// Initialize rate limiter with automatic cleanup
+RateLimiter.initialize();
 
 // Listen for keyboard commands
 chrome.commands.onCommand.addListener((command) => {
@@ -231,8 +236,8 @@ export async function generateFormFills(formData: ExtractedFormData, profile: Us
   });
   console.log('DEBUG: Form fields being analyzed:', formData.fields.map(f => ({ id: f.id, label: f.label, type: f.type })));
 
-  // Get API key from storage
-  const { apiKey } = await chrome.storage.local.get('apiKey');
+  // Get API key from encrypted storage
+  const apiKey = await retrieveApiKey();
   if (!apiKey) {
     throw new Error('API key not configured. Please check your settings.');
   }
@@ -246,23 +251,23 @@ export async function generateFormFills(formData: ExtractedFormData, profile: Us
   const prompt = constructPrompt(formData, profile);
 
   // Call Anthropic API with retry logic
-  const maxRetries = 3;
+  const maxRetries = TIMING.API_RETRY_MAX;
   let lastError: Error = new Error('Unknown error');
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       console.log(`Attempt ${attempt}/${maxRetries} - Calling Claude API...`);
-      
-      const response = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
+
+      const response = await fetchWithTimeout(API_CONFIG.ANTHROPIC_BASE_URL + API_CONFIG.ENDPOINTS.MESSAGES, {
         method: 'POST',
         headers: {
           'x-api-key': apiKey as string,
-          'anthropic-version': '2023-06-01',
+          'anthropic-version': API_CONFIG.ANTHROPIC_VERSION,
           'anthropic-dangerous-direct-browser-access': 'true',
           'content-type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-5', // Alias points to latest Sonnet 4.5
+          model: API_CONFIG.MODELS.SONNET,
           max_tokens: 8000,
           messages: [
             {
@@ -271,39 +276,42 @@ export async function generateFormFills(formData: ExtractedFormData, profile: Us
             },
           ],
         }),
-      }, 30000); // 30 second timeout
+      }, TIMING.API_TIMEOUT_DEFAULT);
 
       if (!response.ok) {
         const errorData: AnthropicError = await response.json().catch(() => ({}));
         
         if (response.status === 401) {
-          throw new Error(errorData.error?.message || 'Invalid API key. Please check your Anthropic API key in settings.');
+          throw new Error(USER_FRIENDLY_ERRORS.API_AUTHENTICATION);
         } else if (response.status === 429) {
-          const waitTime = Math.min(1000 * Math.pow(2, attempt), 10000); // Exponential backoff, max 10s
+          const waitTime = Math.min(TIMING.API_RETRY_BASE_DELAY * Math.pow(2, attempt), TIMING.API_RETRY_MAX_DELAY);
           console.log(`Rate limited. Waiting ${waitTime}ms before retry...`);
           await new Promise(resolve => setTimeout(resolve, waitTime));
-          lastError = new Error(`You've exceeded the API rate limit. We're automatically retrying (attempt ${attempt}/${maxRetries}). This usually resolves in a few seconds.`);
+          lastError = new Error(USER_FRIENDLY_ERRORS.API_RATE_LIMIT);
           continue;
         } else if (response.status >= 500) {
-          const waitTime = 1000 * attempt; // Linear backoff for server errors
+          const waitTime = TIMING.API_RETRY_BASE_DELAY * attempt;
           console.log(`Server error (${response.status}). Waiting ${waitTime}ms before retry...`);
           await new Promise(resolve => setTimeout(resolve, waitTime));
-          lastError = new Error(`Anthropic's API is temporarily unavailable (Error ${response.status}). Retrying automatically (attempt ${attempt}/${maxRetries})...`);
+          lastError = new Error(USER_FRIENDLY_ERRORS.API_SERVER_ERROR);
           continue;
         } else {
-          throw new Error(errorData.error?.message || `API request failed with status ${response.status}. Please try again or check the Anthropic status page.`);
+          // Log detailed error for debugging but show generic message
+          console.error('[API Error]', response.status, errorData);
+          throw new Error(USER_FRIENDLY_ERRORS.API_INVALID_RESPONSE);
         }
       }
 
       const data: AnthropicResponse = await response.json();
 
       if (!data.content || !data.content[0] || !data.content[0].text) {
-        throw new Error('Received an incomplete response from Claude API. The response is missing expected content. Please try again.');
+        console.error('[API Error] Incomplete response structure');
+        throw new Error(USER_FRIENDLY_ERRORS.API_INVALID_RESPONSE);
       }
 
       // Check if response was truncated due to max_tokens limit
       if (data.stop_reason === 'max_tokens') {
-        throw new Error('The AI response was too long and was cut off. This usually happens with very long forms. Please try again - the AI will generate a more concise response.');
+        throw new Error(USER_FRIENDLY_ERRORS.API_RESPONSE_TOO_LONG);
       }
 
       let content = data.content[0].text;
@@ -353,18 +361,18 @@ export async function generateFormFills(formData: ExtractedFormData, profile: Us
         if (parseError instanceof Error && parseError.message.includes('Claude returned data')) {
           throw parseError;
         }
-        console.error('Failed to parse Claude response:', content);
+        console.error('[Parse Error] Failed to parse AI response');
 
-        // Check if response looks like truncated JSON (starts with { or [ but doesn't end properly)
+        // Check if response looks like truncated JSON
         const trimmedContent = content.trim();
         const looksLikeJson = trimmedContent.startsWith('{') || trimmedContent.startsWith('[');
         const incompleteClosure = !trimmedContent.endsWith('}') && !trimmedContent.endsWith(']');
 
         if (looksLikeJson && incompleteClosure) {
-          throw new Error("The AI response appears to be incomplete. This may be due to a very long form. Please try again.");
+          throw new Error(USER_FRIENDLY_ERRORS.API_RESPONSE_TOO_LONG);
         }
 
-        throw new Error("Could not understand Claude's response format. This is likely a temporary issue. Please try again.");
+        throw new Error(USER_FRIENDLY_ERRORS.API_INVALID_RESPONSE);
       }
 
     } catch (error) {
@@ -449,7 +457,7 @@ function constructPrompt(formData: ExtractedFormData, profile: UserProfile): str
 
   return `You are helping a job seeker fill out an application form. Analyze the form fields and job posting, then generate appropriate responses based on the user's profile.
 
-USER PROFILE:
+<user_profile>
 Name: ${safeName}
 Email: ${safeEmail}
 Phone: ${safePhone}
@@ -460,20 +468,22 @@ Gender: ${safeGender}
 Race/Ethnicity: ${safeRace}
 Veteran Status: ${safeVeteranStatus}
 Disability Status: ${safeDisabilityStatus}
+</user_profile>
 
-${safeResume ? `RESUME:\n${safeResume}\n` : ''}
-
-JOB POSTING:
+${safeResume ? `<resume>\n${safeResume}\n</resume>\n` : ''}
+<job_posting>
 Title: ${safeJobTitle}
 Description: ${safeJobDescription}
+</job_posting>
 
-FORM FIELDS:
+<form_fields>
 ${formData.fields.map((field, idx) => {
   const safeLabel = sanitizeForPrompt(field.label);
   const safeFieldId = sanitizeForPrompt(field.id);
   const safeOptions = field.options ? field.options.map(opt => sanitizeForPrompt(opt)).join(', ') : '';
   return `${idx + 1}. ID: "${safeFieldId}" - [${field.type}] ${safeLabel}${field.required ? ' (required)' : ''}${safeOptions ? ` - Options: ${safeOptions}` : ''}${field.maxLength ? ` - Max length: ${field.maxLength}` : ''}`;
 }).join('\n')}
+</form_fields>
 
 INSTRUCTIONS:
 1. Generate appropriate responses for each field
@@ -533,16 +543,16 @@ CRITICAL:
  */
 async function validateApiKey(apiKey: string): Promise<boolean> {
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch(API_CONFIG.ANTHROPIC_BASE_URL + API_CONFIG.ENDPOINTS.MESSAGES, {
       method: 'POST',
       headers: {
         'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
+        'anthropic-version': API_CONFIG.ANTHROPIC_VERSION,
         'anthropic-dangerous-direct-browser-access': 'true',
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'claude-3-haiku-20240307', // Use widely available model for validation
+        model: API_CONFIG.MODELS.HAIKU, // Use lightweight model for validation
         max_tokens: 10,
         messages: [{ role: 'user', content: 'test' }],
       }),
@@ -555,5 +565,8 @@ async function validateApiKey(apiKey: string): Promise<boolean> {
   }
 }
 
-// Expose generateFormFills on globalThis for E2E testing
-(globalThis as any).__generateFormFills = generateFormFills;
+// Expose for E2E testing ONLY in development/test environments
+if (typeof process !== 'undefined' && (process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development')) {
+  (globalThis as any).__generateFormFills = generateFormFills;
+  (globalThis as any).__fetchWithTimeout = fetchWithTimeout;
+}
