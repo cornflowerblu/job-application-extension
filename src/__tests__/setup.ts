@@ -18,10 +18,20 @@ global.chrome = {
       addListener: jest.fn(),
     },
     sendMessage: jest.fn(),
+    lastError: undefined,
   },
   tabs: {
     query: jest.fn(),
     sendMessage: jest.fn(),
+  },
+  commands: {
+    onCommand: {
+      addListener: jest.fn(),
+    },
+  },
+  action: {
+    setBadgeText: jest.fn(),
+    setBadgeBackgroundColor: jest.fn(),
   },
 } as any;
 
