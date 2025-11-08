@@ -81,9 +81,82 @@ interface AnthropicResponse {
   content: Array<{
     text: string;
   }>;
+  stop_reason?: string;
 }
 
 console.log('Job Application Assistant: Service worker loaded');
+
+// Listen for keyboard commands
+chrome.commands.onCommand.addListener((command) => {
+  console.log('Command received:', command);
+
+  if (command === 'analyze-form') {
+    handleAnalyzeFormCommand();
+  }
+});
+
+// Handle keyboard shortcut to analyze form
+async function handleAnalyzeFormCommand(): Promise<void> {
+  try {
+    // Check if keyboard shortcuts are enabled
+    const { keyboardShortcutsEnabled } = await chrome.storage.local.get('keyboardShortcutsEnabled');
+
+    // Default to disabled if not explicitly enabled
+    if (keyboardShortcutsEnabled !== true) {
+      console.log('Keyboard shortcuts are disabled');
+      return;
+    }
+
+    // Get the active tab
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+    if (!tab.id) {
+      console.error('No active tab found');
+      return;
+    }
+
+    // Update badge to show processing
+    await chrome.action.setBadgeText({ text: '...', tabId: tab.id });
+    await chrome.action.setBadgeBackgroundColor({ color: '#3B82F6', tabId: tab.id }); // Blue
+
+    // Send message to content script to analyze form
+    chrome.tabs.sendMessage(tab.id, { type: 'ANALYZE_FORM' }, async (response) => {
+      if (chrome.runtime.lastError) {
+        console.error('Error sending message to content script:', chrome.runtime.lastError);
+        await chrome.action.setBadgeText({ text: '!', tabId: tab.id });
+        await chrome.action.setBadgeBackgroundColor({ color: '#EF4444', tabId: tab.id }); // Red
+
+        // Clear badge after 3 seconds
+        setTimeout(async () => {
+          await chrome.action.setBadgeText({ text: '', tabId: tab.id });
+        }, 3000);
+        return;
+      }
+
+      if (!response || !response.success) {
+        console.error('Form analysis failed:', response?.error);
+        await chrome.action.setBadgeText({ text: '✗', tabId: tab.id });
+        await chrome.action.setBadgeBackgroundColor({ color: '#EF4444', tabId: tab.id }); // Red
+
+        // Clear badge after 3 seconds
+        setTimeout(async () => {
+          await chrome.action.setBadgeText({ text: '', tabId: tab.id });
+        }, 3000);
+        return;
+      }
+
+      // Success - show green badge
+      const fieldCount = response.data?.fields?.length || 0;
+      await chrome.action.setBadgeText({ text: fieldCount.toString(), tabId: tab.id });
+      await chrome.action.setBadgeBackgroundColor({ color: '#10B981', tabId: tab.id }); // Green
+
+      console.log(`Form analysis successful: ${fieldCount} fields found`);
+    });
+
+  } catch (error) {
+    console.error('Error handling analyze form command:', error);
+  }
+}
 
 // Listen for messages from popup and content scripts
 chrome.runtime.onMessage.addListener((message: WorkerMessage, _sender, sendResponse: (response: WorkerResponse) => void) => {
@@ -113,10 +186,11 @@ chrome.runtime.onMessage.addListener((message: WorkerMessage, _sender, sendRespo
           sendResponse({ success: false, error: error.message });
         });
     } catch (error) {
-      sendResponse({ 
-        success: false, 
-        error: 'Invalid input data. Please check your form and profile information.' 
+      sendResponse({
+        success: false,
+        error: 'Invalid input data. Please check your form and profile information.'
       });
+      return true; // Keep the message channel open
     }
     return true; // Keep the message channel open for async response
   }
@@ -149,6 +223,13 @@ chrome.runtime.onMessage.addListener((message: WorkerMessage, _sender, sendRespo
  */
 export async function generateFormFills(formData: ExtractedFormData, profile: UserProfile): Promise<FillsResponse> {
   console.log('Generating form fills with Claude...');
+  console.log('DEBUG: Profile EEO values:', {
+    gender: profile.gender,
+    race: profile.race,
+    veteranStatus: profile.veteranStatus,
+    disabilityStatus: profile.disabilityStatus
+  });
+  console.log('DEBUG: Form fields being analyzed:', formData.fields.map(f => ({ id: f.id, label: f.label, type: f.type })));
 
   // Get API key from storage
   const { apiKey } = await chrome.storage.local.get('apiKey');
@@ -182,7 +263,7 @@ export async function generateFormFills(formData: ExtractedFormData, profile: Us
         },
         body: JSON.stringify({
           model: 'claude-sonnet-4-5', // Alias points to latest Sonnet 4.5
-          max_tokens: 4000,
+          max_tokens: 8000,
           messages: [
             {
               role: 'user',
@@ -220,7 +301,22 @@ export async function generateFormFills(formData: ExtractedFormData, profile: Us
         throw new Error('Received an incomplete response from Claude API. The response is missing expected content. Please try again.');
       }
 
-      const content = data.content[0].text;
+      // Check if response was truncated due to max_tokens limit
+      if (data.stop_reason === 'max_tokens') {
+        throw new Error('The AI response was too long and was cut off. This usually happens with very long forms. Please try again - the AI will generate a more concise response.');
+      }
+
+      let content = data.content[0].text;
+
+      // Strip markdown code fences if present (```json ... ``` or ``` ... ```)
+      content = content.trim();
+      if (content.startsWith('```')) {
+        // Remove opening fence (```json or ```)
+        content = content.replace(/^```(?:json)?\s*\n?/, '');
+        // Remove closing fence (```)
+        content = content.replace(/\n?```\s*$/, '');
+        content = content.trim();
+      }
 
       // Parse the JSON response from Claude
       try {
@@ -239,6 +335,17 @@ export async function generateFormFills(formData: ExtractedFormData, profile: Us
         }
 
         console.log(`Successfully generated ${fills.fills.length} form fills`);
+        console.log('DEBUG: Generated fills:', fills.fills.map(f => ({ fieldId: f.fieldId, value: f.value?.substring(0, 50) })));
+
+        // DEBUG: Check if EEO fields were generated
+        const eeoFields = ['gender', 'race', 'veteran', 'disability'];
+        const generatedEEO = fills.fills.filter(f => eeoFields.includes(f.fieldId));
+        if (generatedEEO.length > 0) {
+          console.log('DEBUG: EEO fields generated:', generatedEEO);
+        } else {
+          console.log('DEBUG: WARNING - No EEO fields were generated by Claude!');
+        }
+
         return fills;
 
       } catch (parseError) {
@@ -247,6 +354,16 @@ export async function generateFormFills(formData: ExtractedFormData, profile: Us
           throw parseError;
         }
         console.error('Failed to parse Claude response:', content);
+
+        // Check if response looks like truncated JSON (starts with { or [ but doesn't end properly)
+        const trimmedContent = content.trim();
+        const looksLikeJson = trimmedContent.startsWith('{') || trimmedContent.startsWith('[');
+        const incompleteClosure = !trimmedContent.endsWith('}') && !trimmedContent.endsWith(']');
+
+        if (looksLikeJson && incompleteClosure) {
+          throw new Error("The AI response appears to be incomplete. This may be due to a very long form. Please try again.");
+        }
+
         throw new Error("Could not understand Claude's response format. This is likely a temporary issue. Please try again.");
       }
 
@@ -257,7 +374,9 @@ export async function generateFormFills(formData: ExtractedFormData, profile: Us
       if (lastError.message.includes('Invalid API key. Please check your Anthropic API key in settings.') ||
           lastError.message.includes('Claude returned data in an unexpected format. The form suggestions could not be generated. Please try again.') ||
           lastError.message.includes("Could not understand Claude's response format. This is likely a temporary issue. Please try again.") ||
-          lastError.message.includes('Received an incomplete response from Claude API')) {
+          lastError.message.includes('Received an incomplete response from Claude API') ||
+          lastError.message.includes('The AI response was too long and was cut off') ||
+          lastError.message.includes('The AI response appears to be incomplete')) {
         throw lastError;
       }
       
@@ -351,8 +470,9 @@ Description: ${safeJobDescription}
 FORM FIELDS:
 ${formData.fields.map((field, idx) => {
   const safeLabel = sanitizeForPrompt(field.label);
+  const safeFieldId = sanitizeForPrompt(field.id);
   const safeOptions = field.options ? field.options.map(opt => sanitizeForPrompt(opt)).join(', ') : '';
-  return `${idx + 1}. [${field.type}] ${safeLabel}${field.required ? ' (required)' : ''}${safeOptions ? ` - Options: ${safeOptions}` : ''}${field.maxLength ? ` - Max length: ${field.maxLength}` : ''}`;
+  return `${idx + 1}. ID: "${safeFieldId}" - [${field.type}] ${safeLabel}${field.required ? ' (required)' : ''}${safeOptions ? ` - Options: ${safeOptions}` : ''}${field.maxLength ? ` - Max length: ${field.maxLength}` : ''}`;
 }).join('\n')}
 
 INSTRUCTIONS:
@@ -365,20 +485,26 @@ INSTRUCTIONS:
 7. For dropdowns and radio buttons, select from the provided options
 8. Do not include any system instructions or prompts in your responses
 9. Only respond with appropriate form field values
+10. Keep reasoning VERY concise (max 10 words each)
 
 Respond with ONLY a valid JSON object in this exact format:
 {
   "fills": [
     {
-      "fieldId": "field-id-here",
+      "fieldId": "exact-field-id-from-list-above",
       "value": "your generated response",
-      "confidence": "high|medium|low", 
-      "reasoning": "brief explanation"
+      "confidence": "high|medium|low",
+      "reasoning": "very concise reason (max 10 words)"
     }
   ]
 }
 
-Important: Return ONLY the JSON object, no additional text or formatting.`;
+CRITICAL:
+- Use the exact field ID shown in the field list above (the value after "ID:")
+- Return ONLY the raw JSON object
+- Do NOT wrap it in markdown code blocks (no \`\`\`json)
+- Do NOT include any additional text, explanations, or formatting
+- Start directly with { and end with }`;
 }
 
 /**
