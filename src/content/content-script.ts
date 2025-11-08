@@ -43,19 +43,94 @@ interface ContentResponse {
 
 console.log('Job Application Assistant: Content script loaded');
 
+// Toast notification system
+let toastTimeout: ReturnType<typeof setTimeout> | null = null;
+
+function showToast(message: string, type: 'info' | 'success' | 'error' = 'info', duration: number = 3000): void {
+  // Remove existing toast if any
+  const existingToast = document.getElementById('job-app-assistant-toast');
+  if (existingToast) {
+    existingToast.remove();
+  }
+
+  // Clear existing timeout
+  if (toastTimeout) {
+    clearTimeout(toastTimeout);
+  }
+
+  // Create toast element
+  const toast = document.createElement('div');
+  toast.id = 'job-app-assistant-toast';
+  toast.setAttribute('role', 'alert');
+  toast.setAttribute('aria-live', 'polite');
+
+  // Set styles based on type
+  const bgColors = {
+    info: '#3B82F6',
+    success: '#10B981',
+    error: '#EF4444'
+  };
+
+  toast.style.cssText = `
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background-color: ${bgColors[type]};
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    z-index: 2147483647;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    max-width: 350px;
+  `;
+
+  toast.textContent = message;
+
+  // Append to body
+  document.body.appendChild(toast);
+
+  // Trigger animation
+  requestAnimationFrame(() => {
+    toast.style.opacity = '1';
+    toast.style.transform = 'translateY(0)';
+  });
+
+  // Auto-hide after duration
+  toastTimeout = setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(10px)';
+    setTimeout(() => {
+      if (toast.parentNode) {
+        toast.remove();
+      }
+    }, 300);
+  }, duration);
+}
+
 // Listen for messages from the popup or service worker
 chrome.runtime.onMessage.addListener((message: ContentMessage, _sender, sendResponse: (response: ContentResponse) => void) => {
   console.log('Content script received message:', message);
 
   if (message.type === 'ANALYZE_FORM') {
+    // Show analyzing toast
+    showToast('Analyzing form...', 'info', 2000);
+
     analyzeForm()
       .then((formData) => {
+        const fieldCount = formData.fields.length;
+        showToast(`✓ Found ${fieldCount} form field${fieldCount !== 1 ? 's' : ''}`, 'success', 3000);
         sendResponse({ success: true, data: formData });
       })
       .catch((error: Error) => {
         console.error('Form analysis failed:', error);
         let errorMessage = 'Failed to analyze form on this page.';
-        
+
         if (error.message.includes('No forms detected')) {
           errorMessage = 'No forms found on this page. Please navigate to a job application page.';
         } else if (error.message.includes('DOM access')) {
@@ -63,7 +138,8 @@ chrome.runtime.onMessage.addListener((message: ContentMessage, _sender, sendResp
         } else if (error.message.includes('Permission denied')) {
           errorMessage = 'Permission denied. Please check if the extension has access to this site.';
         }
-        
+
+        showToast(errorMessage, 'error', 4000);
         sendResponse({ success: false, error: errorMessage });
       });
     return true; // Keep the message channel open for async response
@@ -71,18 +147,23 @@ chrome.runtime.onMessage.addListener((message: ContentMessage, _sender, sendResp
 
   if (message.type === 'FILL_FORM') {
     if (!message.fills || !Array.isArray(message.fills)) {
-      sendResponse({ success: false, error: 'Invalid form fill data provided.' });
+      const errorMsg = 'Invalid form fill data provided.';
+      showToast(errorMsg, 'error', 3000);
+      sendResponse({ success: false, error: errorMsg });
       return;
     }
-    
+
+    showToast('Filling form...', 'info', 2000);
+
     fillForm(message.fills)
       .then(() => {
+        showToast(`✓ Form filled successfully`, 'success', 3000);
         sendResponse({ success: true });
       })
       .catch((error: Error) => {
         console.error('Form filling failed:', error);
         let errorMessage = 'Failed to fill form fields.';
-        
+
         if (error.message.includes('Element not found')) {
           errorMessage = 'Some form fields could not be found. The page may have changed.';
         } else if (error.message.includes('Read-only')) {
@@ -90,7 +171,8 @@ chrome.runtime.onMessage.addListener((message: ContentMessage, _sender, sendResp
         } else if (error.message.includes('Permission denied')) {
           errorMessage = 'Permission denied while accessing form fields.';
         }
-        
+
+        showToast(errorMessage, 'error', 4000);
         sendResponse({ success: false, error: errorMessage });
       });
     return true;
@@ -119,11 +201,13 @@ async function analyzeForm(): Promise<ExtractedFormData> {
     if (forms.length === 0) {
       // Try to find form-like structures that might not use <form> tags
       const formLikeElements = document.querySelectorAll('[class*="form"], [id*="form"], [class*="application"], [id*="application"]');
-      
+
       if (formLikeElements.length === 0) {
-        throw new Error('No forms detected on this page. Please navigate to a job application page with forms.');
+        // Provide helpful guidance
+        const pageType = document.location.hostname;
+        throw new Error(`No application forms found on this page (${pageType}). Try opening a job application page first, then use the keyboard shortcut or click "Analyze Form" again.`);
       }
-      
+
       // If we found form-like elements, use the body as the form container
       console.log('No <form> tags found, but detected form-like elements. Analyzing entire page...');
     }
@@ -131,9 +215,12 @@ async function analyzeForm(): Promise<ExtractedFormData> {
     // Extract fields from the first form (MVP simplification)
     const form = forms.length > 0 ? forms[0] : document.body;
     const fields = extractFields(form as HTMLElement);
-    
+
     if (fields.length === 0) {
-      throw new Error('No fillable form fields found on this page.');
+      const suggestion = forms.length > 0
+        ? 'The form was found but contains no fillable fields. You may need to scroll down or navigate to the next step of the application.'
+        : 'No fillable input fields were detected on this page. Make sure you\'re on an active job application form.';
+      throw new Error(suggestion);
     }
 
     const jobPosting = extractJobPosting();
@@ -164,9 +251,15 @@ function extractFields(container: HTMLElement): FormField[] {
     if (input.disabled || input.type === 'hidden' || input.style.display === 'none') {
       return;
     }
-    
+
+    // Generate a unique ID for this field
+    const fieldId = input.id || input.name || `job-app-field-${fields.length}`;
+
+    // Add data attribute to element so we can find it later
+    input.setAttribute('data-job-app-field-id', fieldId);
+
     fields.push({
-      id: input.id || input.name || `field-${fields.length}`,
+      id: fieldId,
       type: input.type || 'text',
       label: getFieldLabel(input),
       required: input.required,
@@ -180,9 +273,15 @@ function extractFields(container: HTMLElement): FormField[] {
     if (textarea.disabled || textarea.style.display === 'none') {
       return;
     }
-    
+
+    // Generate a unique ID for this field
+    const fieldId = textarea.id || textarea.name || `job-app-field-${fields.length}`;
+
+    // Add data attribute to element so we can find it later
+    textarea.setAttribute('data-job-app-field-id', fieldId);
+
     fields.push({
-      id: textarea.id || textarea.name || `field-${fields.length}`,
+      id: fieldId,
       type: 'textarea',
       label: getFieldLabel(textarea),
       required: textarea.required,
@@ -196,10 +295,16 @@ function extractFields(container: HTMLElement): FormField[] {
     if (select.disabled || select.style.display === 'none') {
       return;
     }
-    
+
+    // Generate a unique ID for this field
+    const fieldId = select.id || select.name || `job-app-field-${fields.length}`;
+
+    // Add data attribute to element so we can find it later
+    select.setAttribute('data-job-app-field-id', fieldId);
+
     const options = Array.from(select.options).map((opt) => opt.text || opt.value);
     fields.push({
-      id: select.id || select.name || `field-${fields.length}`,
+      id: fieldId,
       type: 'select',
       label: getFieldLabel(select),
       required: select.required,
@@ -216,8 +321,12 @@ function extractFields(container: HTMLElement): FormField[] {
     if (radio.disabled || radio.style.display === 'none') {
       return;
     }
-    
+
     const name = radio.name;
+
+    // Add data attribute to each radio button using the group name
+    radio.setAttribute('data-job-app-field-id', name);
+
     if (!radioGroups.has(name)) {
       radioGroups.set(name, {
         id: name,
@@ -227,7 +336,7 @@ function extractFields(container: HTMLElement): FormField[] {
         options: [],
       });
     }
-    
+
     const group = radioGroups.get(name)!;
     const label = getFieldLabel(radio);
     if (label && !group.options.includes(label)) {
@@ -245,9 +354,15 @@ function extractFields(container: HTMLElement): FormField[] {
     if (checkbox.disabled || checkbox.style.display === 'none') {
       return;
     }
-    
+
+    // Generate a unique ID for this field
+    const fieldId = checkbox.id || checkbox.name || `job-app-field-${fields.length}`;
+
+    // Add data attribute to element so we can find it later
+    checkbox.setAttribute('data-job-app-field-id', fieldId);
+
     fields.push({
-      id: checkbox.id || checkbox.name || `field-${fields.length}`,
+      id: fieldId,
       type: 'checkbox',
       label: getFieldLabel(checkbox),
       required: checkbox.required,
@@ -349,9 +464,19 @@ async function fillForm(fills: FormFill[]): Promise<void> {
  * Find an element by ID, name, or other attributes
  */
 function findElementById(id: string): HTMLElement | null {
-  return document.getElementById(id) ||
-         document.querySelector<HTMLElement>(`[name="${id}"]`) ||
-         document.querySelector<HTMLElement>(`[data-field-id="${id}"]`);
+  // Try data attribute first (most reliable for our generated IDs)
+  const byData = document.querySelector<HTMLElement>(`[data-job-app-field-id="${id}"]`);
+  if (byData) return byData;
+
+  // Try direct ID
+  const byId = document.getElementById(id);
+  if (byId) return byId;
+
+  // Try name attribute
+  const byName = document.querySelector<HTMLElement>(`[name="${id}"]`);
+  if (byName) return byName;
+
+  return null;
 }
 
 /**
@@ -371,16 +496,75 @@ async function fillField(element: HTMLElement, value: string | boolean): Promise
     element.dispatchEvent(new Event('change', { bubbles: true }));
   } else if (tagName === 'select') {
     const selectElement = element as HTMLSelectElement;
-    const option = Array.from(selectElement.options).find(
-      (opt) => opt.text === value || opt.value === value
+    // Try to find option by text or value (case-insensitive and flexible matching)
+    const valueStr = String(value).toLowerCase().trim();
+
+    // Try exact match first
+    let option = Array.from(selectElement.options).find(
+      (opt) => {
+        const optText = opt.text.toLowerCase().trim();
+        const optValue = opt.value.toLowerCase().trim();
+        return optText === valueStr || optValue === valueStr;
+      }
     );
+
+    // Fall back to fuzzy match
+    if (!option) {
+      option = Array.from(selectElement.options).find(
+        (opt) => {
+          const optText = opt.text.toLowerCase().trim();
+          const optValue = opt.value.toLowerCase().trim();
+          return optText.includes(valueStr) || valueStr.includes(optText) ||
+                 optValue.includes(valueStr) || valueStr.includes(optValue);
+        }
+      );
+    }
+
     if (option) {
       selectElement.value = option.value;
       element.dispatchEvent(new Event('change', { bubbles: true }));
+    } else {
+      console.warn(`Could not find option "${value}" in select element`, selectElement);
     }
   } else if (type === 'radio') {
-    (element as HTMLInputElement).checked = true;
-    element.dispatchEvent(new Event('change', { bubbles: true }));
+    // For radio buttons, element is one button in a group. We need to find the right one by value.
+    const radioElement = element as HTMLInputElement;
+    const name = radioElement.name;
+
+    if (!name) {
+      console.warn('Radio button has no name attribute, cannot fill:', element);
+      return;
+    }
+
+    // Find all radio buttons in the same group
+    const radioGroup = document.querySelectorAll<HTMLInputElement>(`input[type="radio"][name="${name}"]`);
+
+    // Try to match by value or label text (case-insensitive)
+    const valueStr = String(value).toLowerCase().trim();
+    let matched = false;
+
+    for (const radio of radioGroup) {
+      // Check if value matches
+      if (radio.value.toLowerCase().trim() === valueStr) {
+        radio.checked = true;
+        radio.dispatchEvent(new Event('change', { bubbles: true }));
+        matched = true;
+        break;
+      }
+
+      // Check if label text matches
+      const label = getFieldLabel(radio).toLowerCase().trim();
+      if (label === valueStr || label.includes(valueStr) || valueStr.includes(label)) {
+        radio.checked = true;
+        radio.dispatchEvent(new Event('change', { bubbles: true }));
+        matched = true;
+        break;
+      }
+    }
+
+    if (!matched) {
+      console.warn(`Could not find radio button with value "${value}" in group "${name}"`);
+    }
   } else if (type === 'checkbox') {
     (element as HTMLInputElement).checked = value === true || value === 'true' || value === 'yes';
     element.dispatchEvent(new Event('change', { bubbles: true }));
