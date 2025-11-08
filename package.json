@@ -10,6 +10,10 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:debug": "playwright test --debug",
+    "test:e2e:real-api": "ENABLE_REAL_API_TESTS=true playwright test e2e/real-api.spec.ts",
     "typecheck": "tsc --noEmit --project tsconfig.json && tsc --noEmit --project tsconfig.node.json",
     "lint": "echo 'No ESLint configuration found, skipping linting...'",
     "test:ci": "npm run typecheck && npm run build && npm run test"
@@ -20,6 +24,7 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.56.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@types/chrome": "^0.0.280",
     "@types/jest": "^30.0.0",
