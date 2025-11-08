@@ -83,10 +83,10 @@ npm run test:e2e:real-api
 
 **How it works:**
 1. Loads actual extension in Chrome
-2. Navigates to test-form.html
-3. Uses keyboard shortcuts to trigger analysis and filling
+2. Navigates to comprehensive-job-application.html (40+ fields)
+3. Programmatically sends messages to analyze form and generate fills
 4. Makes **real** Claude API calls (no mocking!)
-5. Verifies form fields are filled correctly
+5. Verifies all 40+ form fields are filled correctly
 
 ---
 
@@ -342,9 +342,8 @@ test('should test new feature with real API', async () => {
 
   const page = await context.newPage();
 
-  // Navigate to test form
-  const testFormPath = path.join(__dirname, '..', 'test-form.html');
-  await page.goto(`file://${testFormPath}`);
+  // Navigate to test form (HTTP server required for content script to load)
+  await page.goto('http://localhost:8888/e2e/fixtures/comprehensive-job-application.html');
 
   // Set up profile...
   // Trigger analysis and filling...
