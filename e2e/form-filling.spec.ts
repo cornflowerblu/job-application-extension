@@ -15,6 +15,7 @@ test.describe('Form Filling E2E', () => {
     const isCI = process.env.CI === 'true';
     context = await chromium.launchPersistentContext('', {
       headless: isCI, // Headless in CI, headed for local development
+      channel: 'chromium', // Required for extension support in headless mode
       args: [
         `--disable-extensions-except=${pathToExtension}`,
         `--load-extension=${pathToExtension}`,

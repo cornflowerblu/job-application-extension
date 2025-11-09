@@ -564,8 +564,11 @@ async function validateApiKey(apiKey: string): Promise<boolean> {
   }
 }
 
-// Expose for E2E testing ONLY in development/test environments
-if (typeof process !== 'undefined' && (process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development')) {
-  (globalThis as any).__generateFormFills = generateFormFills;
-  (globalThis as any).__fetchWithTimeout = fetchWithTimeout;
-}
+// Expose for E2E testing
+// These functions are exposed on globalThis to allow E2E tests to call them directly.
+// Security note: This is safe because:
+// 1. globalThis in service worker context is isolated (not accessible to web pages)
+// 2. Only the extension itself can access service worker's globalThis
+// 3. Anyone with access to the service worker already has full extension privileges
+(globalThis as any).__generateFormFills = generateFormFills;
+(globalThis as any).__fetchWithTimeout = fetchWithTimeout;
