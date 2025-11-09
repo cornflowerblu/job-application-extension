@@ -516,6 +516,12 @@ async function fillField(element: HTMLElement, value: string | boolean): Promise
     const numberInput = element as HTMLInputElement;
     let numValue = parseFloat(String(value));
 
+    // Validate that the value can be parsed to a number
+    if (isNaN(numValue)) {
+      console.warn(`[Job App Assistant] Cannot parse value "${value}" as a number for field. Skipping.`);
+      return;
+    }
+
     // Respect min/max if set
     if (numberInput.min && numValue < parseFloat(numberInput.min)) {
       numValue = parseFloat(numberInput.min);
