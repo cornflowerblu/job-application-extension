@@ -1,15 +1,74 @@
 # Release Guide: Agentic Job Hunting Chrome Extension
 
-This guide covers the release process for the AJH Chrome extension, from initial MVP distribution via GitHub Releases to eventual Chrome Web Store publication.
+This guide covers the release process for the AJH Chrome extension using **[Release Please](https://github.com/googleapis/release-please)** for fully automated releases.
 
 ---
 
 ## Table of Contents
 
-1. [Phase 1: MVP Release via GitHub](#phase-1-mvp-release-via-github)
-2. [Phase 2: Chrome Web Store (Unlisted)](#phase-2-chrome-web-store-unlisted)
-3. [Updating Existing Releases](#updating-existing-releases)
+1. [Release Process Overview](#release-process-overview)
+2. [Phase 1: MVP Release via GitHub](#phase-1-mvp-release-via-github)
+3. [Phase 2: Chrome Web Store (Unlisted)](#phase-2-chrome-web-store-unlisted)
 4. [Troubleshooting](#troubleshooting)
+
+---
+
+## Release Process Overview
+
+This project uses **Release Please** for completely automated releases! 🎉
+
+### How It Works
+
+1. **Write commits using Conventional Commits format** (see below)
+2. **Push to main** (or merge PRs)
+3. **Release Please bot automatically**:
+   - Analyzes your commits
+   - Calculates the next version
+   - Generates CHANGELOG
+   - Creates a "Release PR"
+4. **Merge the Release PR** → automatic tag + GitHub Release + ZIP file!
+
+**No manual version updates, tagging, or changelog editing needed!**
+
+### Conventional Commit Format
+
+**You MUST use this format for commits** (or releases won't work):
+
+```bash
+<type>: <description>
+
+[optional body]
+
+[optional footer]
+```
+
+**Types:**
+- `feat:` - New feature → bumps **minor** version (0.1.0 → 0.2.0)
+- `fix:` - Bug fix → bumps **patch** version (0.1.0 → 0.1.1)
+- `feat!:` or `BREAKING CHANGE:` - Breaking change → bumps **major** version (0.1.0 → 1.0.0)
+- `docs:` - Documentation only
+- `test:` - Adding tests
+- `chore:` - Maintenance (won't trigger release)
+- `refactor:` - Code refactoring
+- `perf:` - Performance improvement
+- `ci:` - CI/CD changes
+
+**Examples:**
+
+```bash
+# Feature (minor version bump)
+feat: add support for multi-page forms
+
+# Bug fix (patch version bump)
+fix: correct API key validation logic
+
+# Breaking change (major version bump)
+feat!: change storage format to encrypted JSON
+
+# Multiple types
+fix: resolve form detection on LinkedIn
+docs: update installation instructions
+```
 
 ---
 
@@ -23,6 +82,7 @@ This guide covers the release process for the AJH Chrome extension, from initial
 - Complete control over distribution
 - Free (no fees)
 - Quick iteration cycles
+- **Fully automated with Release Please**
 
 **Limitations:**
 
@@ -30,183 +90,59 @@ This guide covers the release process for the AJH Chrome extension, from initial
 - Users must manually install and update
 - Requires Developer Mode in Chrome
 
-### Step 1: Prepare the Release
+### 🤖 Automated Release Workflow
 
-#### 1.1 Update Version Number
+**The process is completely hands-off once you merge PRs!**
 
-Edit **both** version files:
+#### Step 1: Write Conventional Commits
 
-**`public/manifest.json`**:
-```json
-{
-  "version": "0.1.0",
-  ...
-}
-```
-
-**`package.json`**:
-```json
-{
-  "version": "0.1.0",
-  ...
-}
-```
-
-**Important:** Keep both versions in sync!
-
-**Version numbering guide:**
-
-- `0.1.0` - Initial MVP
-- `0.2.0` - Minor feature additions
-- `0.2.1` - Bug fixes
-- `1.0.0` - First stable release
-
-#### 1.2 Update CHANGELOG.md
-
-Add release notes at the top:
-
-```markdown
-## [0.1.0] - 2025-11-09
-
-### Added
-
-- Initial MVP release
-- Form detection and analysis
-- AI-powered form filling
-- Configuration management
-- Basic error handling
-
-### Known Issues
-
-- Does not support multi-page forms yet
-- Limited to single active application
-```
-
-#### 1.3 Commit Version Changes
+**Note:** With Release Please automation, you don't need to manually create ZIPs anymore! The workflow handles this automatically when you merge a Release PR. However, if you need to test packaging locally:
 
 ```bash
-git add public/manifest.json package.json CHANGELOG.md
-git commit -m "chore: release v0.1.0"
 git push origin main
 ```
 
-### Step 2: Build the Extension
+Or merge your PRs through GitHub's UI.
 
-#### 2.1 Create Production Build
+#### Step 3: Wait for Release Please
 
-```bash
-# Run your build process (adjust command as needed)
-npm run build
+After pushing to main, Release Please will:
 
-# Or if you don't have a build process yet:
-# Just make sure you have a clean directory structure
-```
+1. **Analyze commits** since the last release
+2. **Calculate next version** based on conventional commits
+3. **Generate/update CHANGELOG** automatically
+4. **Create or update a Release PR**
 
-#### 2.2 Create Release Package
+The Release PR will show:
+- New version number
+- Generated CHANGELOG entries
+- Updated `package.json` and `public/manifest.json`
 
-**Using npm script (recommended):**
+#### Step 4: Review and Merge the Release PR
 
-```bash
-npm run release:package
-```
+1. Go to the **Pull Requests** tab
+2. Find the Release PR (titled like "chore(main): release 0.2.0")
+3. Review the changes:
+   - Check version number is correct
+   - Review auto-generated CHANGELOG
+   - Verify manifest versions are updated
+4. **Merge the Release PR**
 
-This creates `agentic-job-hunter-v0.1.0.zip` in the project root.
+#### Step 5: Automatic Release Creation
 
-**Manual method:**
+Once you merge the Release PR, the workflow automatically:
 
-```bash
-# Build first
-npm run build
+1. ✅ Creates a git tag (e.g., `v0.2.0`)
+2. ✅ Runs full test suite
+3. ✅ Builds the extension
+4. ✅ Creates `agentic-job-hunter-v0.2.0.zip`
+5. ✅ Creates GitHub Release with CHANGELOG
+6. ✅ Uploads ZIP file as release asset
+7. ✅ Marks 0.x versions as pre-release
 
-# Navigate to build output
-cd dist
+**That's it!** No manual steps needed.
 
-# Create zip (dist/ already contains only production files)
-zip -r ../agentic-job-hunter-v0.1.0.zip .
-
-# Return to root
-cd ..
-```
-
-**Note:** The `dist/` directory already excludes development files, so no need for complex exclusions.
-
-**Required files in the ZIP:**
-
-- `manifest.json`
-- All `.js` files (background, content scripts, popup)
-- All `.html` files
-- All `.css` files
-- `icons/` directory
-- Any other assets (images, fonts, etc.)
-
-**Exclude from ZIP:**
-
-- `.git/`
-- `node_modules/`
-- Test files
-- Documentation (README.md, etc.)
-- Development configs
-- `package.json` and `package-lock.json` (unless needed for build)
-
-### Step 3: Create Git Tag
-
-```bash
-# Create annotated tag
-git tag -a v0.1.0 -m "Release v0.1.0 - Initial MVP"
-
-# Push tag to GitHub
-git push origin v0.1.0
-```
-
-### Step 4: Create GitHub Release
-
-#### Via GitHub Web Interface:
-
-1. Go to your repository on GitHub
-2. Click **"Releases"** (right sidebar)
-3. Click **"Draft a new release"**
-4. Fill out the form:
-   - **Tag:** Select `v0.1.0` (or create new if not pushed yet)
-   - **Release title:** `v0.1.0 - Initial MVP`
-   - **Description:** Copy from CHANGELOG.md or write summary:
-
-     ```markdown
-     ## Initial MVP Release
-
-     This is the first working version of the Agentic Job Hunter extension.
-
-     ### Features
-
-     - Form detection and field extraction
-     - AI-powered form filling with Claude
-     - Configuration management (API key, resume, profile)
-     - Preview before applying fills
-
-     ### Installation Instructions
-
-     See below for how to install this extension.
-
-     ### Known Issues
-
-     - Multi-page forms not yet supported
-     - Limited to single active application at a time
-     ```
-
-   - **Attach files:** Drag and drop `agentic-job-hunter-v0.1.0.zip`
-   - **Pre-release:** Check this for MVP versions (< 1.0.0)
-5. Click **"Publish release"**
-
-#### Via GitHub CLI (if installed):
-
-```bash
-gh release create v0.1.0 \
-  agentic-job-hunter-v0.1.0.zip \
-  --title "v0.1.0 - Initial MVP" \
-  --notes-file CHANGELOG.md \
-  --prerelease
-```
-
-### Step 5: Installation Instructions for Users
+### Installation Instructions for Users
 
 Include these instructions in your release notes or README:
 
@@ -251,7 +187,7 @@ When a new version is released:
 **Note:** Your configuration data is stored in Chrome's sync storage, so it will persist across updates.
 ```
 
-### Step 6: Test the Installation
+### Testing the Installation
 
 Before sharing with others, test the release package yourself:
 
@@ -362,7 +298,7 @@ git push
 
 # Enable GitHub Pages in repo settings
 # Settings > Pages > Source: main branch > /docs folder
-# Your policy will be at: https://yourusername.github.io/repo-name/privacy-policy.html
+# Your policy will be at: https://cornflowerblu.github.io/job-application-extension/privacy-policy.html
 ```
 
 #### 1.3 Store Description
@@ -460,7 +396,7 @@ For issues or questions, visit: [GitHub repo URL]
 
 **Privacy:**
 
-- Privacy policy URL: `https://yourusername.github.io/repo-name/privacy-policy.html`
+- Privacy policy URL: `https://cornflowerblu.github.io/job-application-extension/privacy-policy.html`
 - Permissions justification:
   - `storage`: "Store user configuration, resume, and profile data locally"
   - `activeTab`: "Detect and analyze job application forms on the current tab"
@@ -520,75 +456,68 @@ Auto-updates are enabled - you'll always have the latest version.
 
 For the latest unreleased features:
 
-1. Download the latest release from [GitHub Releases](https://github.com/yourusername/repo/releases)
+1. Download the latest release from [GitHub Releases](https://github.com/cornflowerblu/job-application-extension/releases)
 2. Extract the ZIP file
 3. Go to `chrome://extensions/`
 4. Enable "Developer mode"
 5. Click "Load unpacked" and select the extracted folder
 ```
 
----
+### Step 6: Publishing Updates to Chrome Web Store
 
-## Updating Existing Releases
+When you want to release a new version to the Chrome Web Store:
 
-### For GitHub Releases (Phase 1)
+1. **Develop and commit** using conventional commits (as described in the Release Process Overview)
+2. **Merge the Release PR** that Release Please creates
+3. **Download the ZIP** from the automatic GitHub Release
+4. **Upload to Chrome Web Store**:
+   - Go to [Developer Dashboard](https://chrome.google.com/webstore/devconsole/)
+   - Click on your extension
+   - Click **"Package"** tab
+   - Click **"Upload new package"**
+   - Select the ZIP file from the GitHub Release
+   - Click **"Submit for review"**
+5. **Wait for approval** (typically 1-3 business days)
 
-When you have a new version:
+**Users will auto-update** within a few hours of approval. Chrome checks for updates automatically.
 
-```bash
-# 1. Update version in BOTH files
-# Edit public/manifest.json: "version": "0.2.0"
-# Edit package.json: "version": "0.2.0"
+# 4. Build and package (only if testing manually)
+npm run build
+cd dist && zip -r ../agentic-job-hunter-v0.2.0.zip . && cd ..
 
-# 2. Update CHANGELOG.md with new features/fixes
-
-# 3. Commit changes
-git add public/manifest.json package.json CHANGELOG.md
-git commit -m "chore: release v0.2.0"
-git push origin main
-
-# 4. Build and package
-npm run release:package
-# Creates: agentic-job-hunter-v0.2.0.zip
-
-# 5. Create new tag
-git tag -a v0.2.0 -m "Release v0.2.0"
-git push origin v0.2.0
-
-# 6. Create GitHub Release (same process as before)
-# Upload agentic-job-hunter-v0.2.0.zip
-```
-
-**Notify your users** (if you have any):
-
-- Post update in GitHub Discussions or Issues
-- Email testers directly
-- Post on social media
-
-### For Chrome Web Store (Phase 2)
-
-When you have a new version:
-
-```bash
-# 1-5. Same as above (update version, CHANGELOG, commit, tag, package)
-
-# 6. Upload to Chrome Web Store
-```
-
-1. Go to [Developer Dashboard](https://chrome.google.com/webstore/devconsole/)
-2. Click on your extension
-3. Click **"Package"** tab
-4. Click **"Upload new package"**
-5. Select your new `agentic-job-hunter-v0.2.0.zip`
-6. Click **"Submit for review"**
-
-**Users will auto-update** within a few hours of approval (Chrome checks for updates every few hours).
-
-**Optional:** Also create GitHub Release for version tracking and backup distribution.
 
 ---
 
 ## Troubleshooting
+
+### Release Please Issues
+
+**No Release PR Created:**
+
+- Check that you're using conventional commit format (`feat:`, `fix:`, etc.)
+- Non-release commits like `docs:`, `chore:`, `test:` won't trigger releases
+- Check the Actions tab for Release Please workflow runs
+- Make sure you've pushed to the `main` branch
+
+**Release PR Not Updating:**
+
+- Ensure new commits use conventional format
+- Release Please only tracks commits since the last release
+- Check `.github/workflows/release-please.yml` configuration
+
+**Wrong Version Number:**
+
+- Release Please calculates versions based on commit types:
+  - `feat:` → minor version (0.1.0 → 0.2.0)
+  - `fix:` → patch version (0.1.0 → 0.1.1)  
+  - `feat!:` or `BREAKING CHANGE:` → major version (0.1.0 → 1.0.0)
+- If the version is wrong, check your commit message types
+
+**Release Failed After Merging Release PR:**
+
+- Check Actions tab for error details
+- Common causes: test failures, build errors
+- Fix the issue and push a new commit to trigger another release attempt
 
 ### Package Won't Upload to Chrome Web Store
 
@@ -653,99 +582,113 @@ When you have a new version:
 
 ---
 
-## Quick Reference: Commands
+## Quick Reference
 
-### Build and Package
+### Build and Package (for local testing only)
+
+**Note:** Release Please automation handles this automatically. Only use these for local testing.
 
 ```bash
-# Simple way (recommended)
-npm run release:package
-
-# Or manual way
 npm run build
 cd dist
 zip -r ../agentic-job-hunter-v$(node -p "require('../package.json').version").zip .
 cd ..
 ```
-
-### Version and Tag
-
-```bash
-# Update public/manifest.json, package.json and CHANGELOG.md first, then:
-VERSION=$(node -p "require('./package.json').version")
-git add public/manifest.json package.json CHANGELOG.md
-git commit -m "chore: release v$VERSION"
-git tag -a "v$VERSION" -m "Release v$VERSION"
-git push origin main --tags
-```
-
-### GitHub Release (CLI)
+### Conventional Commit Examples
 
 ```bash
-VERSION=$(node -p "require('./package.json').version")
-gh release create "v$VERSION" \
-  "agentic-job-hunter-v$VERSION.zip" \
-  --title "v$VERSION" \
-  --notes-file CHANGELOG.md \
-  --prerelease  # Remove for stable releases (>= 1.0.0)
+# Feature additions (minor version bump)
+git commit -m "feat: add support for LinkedIn forms"
+git commit -m "feat: implement auto-save for profile data"
+
+# Bug fixes (patch version bump)
+git commit -m "fix: correct form field detection on Indeed"
+git commit -m "fix: resolve API key validation issue"
+
+# Breaking changes (major version bump)
+git commit -m "feat!: migrate to new storage format"
+git commit -m "feat: remove deprecated API
+
+BREAKING CHANGE: The old API endpoints are no longer supported"
+
+# Non-release commits (don't trigger version bumps)
+git commit -m "docs: update installation guide"
+git commit -m "test: add form detection test cases"
+git commit -m "chore: update dependencies"
 ```
+
+### Release Workflow Summary
+
+1. **Develop** → Write code with conventional commits
+2. **Push/Merge** → Push to main or merge PRs
+3. **Wait** → Release Please creates/updates Release PR
+4. **Review** → Check the Release PR for version and CHANGELOG
+5. **Merge** → Merge Release PR to trigger automatic release
 
 ---
 
-## Checklist: First Release
+## Checklist: Working with Releases
 
-### Before Building
+### For Each Feature/Fix
 
-- [ ] Version updated in BOTH public/manifest.json AND package.json
-- [ ] CHANGELOG.md updated
-- [ ] All features tested locally
+- [ ] Use conventional commit format (`feat:`, `fix:`, etc.)
+- [ ] Write clear, descriptive commit messages
+- [ ] Test changes locally before pushing
 - [ ] All tests pass: `npm run test:ci`
-- [ ] Privacy policy written (if going to Web Store)
-- [ ] Screenshots captured (if going to Web Store)
-- [ ] Store description written (if going to Web Store)
 
-### Building
+### When Release PR Appears
 
-- [ ] Production build created
-- [ ] ZIP package created
-- [ ] ZIP tested (extract and load unpacked)
-- [ ] All features work from packaged version
+- [ ] Review auto-generated version number
+- [ ] Review auto-generated CHANGELOG entries
+- [ ] Verify manifest versions are updated correctly
+- [ ] Check that all changes are documented
+- [ ] Merge Release PR when ready
 
-### Releasing
+### After Release is Created
 
-- [ ] Changes committed to main
-- [ ] Git tag created and pushed
-- [ ] GitHub Release created
-- [ ] ZIP uploaded to GitHub Release
-- [ ] Installation instructions in release notes
-- [ ] (Web Store) Developer account created
-- [ ] (Web Store) Extension submitted for review
+- [ ] Download and test the ZIP file
+- [ ] Install in Chrome (Developer Mode)
+- [ ] Verify all features work
+- [ ] Test a complete form-fill workflow
+- [ ] (Optional) Notify users about new release
 
-### After Release
+### For Chrome Web Store (Phase 2)
 
-- [ ] Test installation from GitHub Release
-- [ ] Update README with installation instructions
-- [ ] (Web Store) After approval, test installation from store
-- [ ] (Web Store) Save store URL for sharing
+- [ ] Privacy policy written and published
+- [ ] Screenshots captured
+- [ ] Store description written
+- [ ] Developer account created ($5 fee)
+- [ ] Extension submitted for review
 
 ---
 
 ## Tips for Success
 
-1. **Start with GitHub Releases** - Get comfortable with the build/package process before dealing with store review
-2. **Version conservatively** - Stay in 0.x.x until you're confident in stability
-3. **Test the package** - Always test the actual ZIP you're distributing, not your dev directory
-4. **Keep CHANGELOG updated** - Makes it easy to write release notes
-5. **Use the npm scripts** - `npm run release:prep` runs all tests, `npm run release:package` creates the ZIP
-6. **Sync versions** - Always update BOTH public/manifest.json and package.json
-7. **Document known issues** - Be upfront about limitations in release notes
-8. **Unlisted is your friend** - Use Unlisted store listing until you're ready for public discovery
+1. **Trust the automation** - Release Please handles testing, building, and releasing automatically
+2. **Use Conventional Commits** - Required for Release Please to work correctly
+3. **Version conservatively** - Stay in 0.x.x until you're confident in stability
+4. **Keep CHANGELOG updated** - Release Please generates this automatically from commits
+5. **Watch the Actions tab** - Monitor your release build in real-time
+6. **Test locally first** - Use `npm run test:ci` to catch issues before merging
+7. **Test the package** - Always test the actual ZIP from GitHub Releases
+8. **Document known issues** - Be upfront about limitations in release notes
+9. **Unlisted is your friend** - Use Unlisted store listing until you're ready for public discovery
 
 ## Available npm Scripts for Releases
 
-- `npm run release:prep` - Runs full CI test suite (typecheck, build, tests)
-- `npm run release:package` - Builds and creates versioned ZIP file
-- `npm run release:all` - Runs prep then package (complete pre-release workflow)
+**For local testing/validation:**
+- `npm run test:ci` - Runs full CI test suite (typecheck, build, tests)
+- Manual build and ZIP creation (see commands above)
+
+**Note:** Release Please automation handles testing, building, and packaging automatically when you merge a Release PR. These manual steps are only needed for local testing.
+1. **Trust Release Please** - It handles versioning, changelogs, and releases automatically
+2. **Use conventional commits** - This is the ONLY manual step; the format determines everything
+3. **Merge frequently** - Small, focused changes are easier to review and release
+4. **Version conservatively** - Stay in 0.x.x until you're confident in stability  
+5. **Test before merging** - Make sure tests pass locally before pushing to main
+6. **Review Release PRs carefully** - This is your chance to catch issues before release
+7. **Document known issues** - Be upfront about limitations in commit messages
+8. **Start with GitHub Releases** - Get comfortable with automation before submitting to Web Store
 
 ---
 

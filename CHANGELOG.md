@@ -46,5 +46,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - All data stored locally in Chrome storage
 - Encrypted API key storage
 
-[unreleased]: https://github.com/cornflowerblu/agentic-job-hunter/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/cornflowerblu/agentic-job-hunter/releases/tag/v0.1.0
+[unreleased]: https://github.com/cornflowerblu/job-application-extension/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/cornflowerblu/job-application-extension/releases/tag/v0.1.0
