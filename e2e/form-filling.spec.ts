@@ -465,7 +465,6 @@ test.describe('Form Filling E2E', () => {
             if (!option) {
               option = Array.from(selectElement.options).find((opt) => {
                 const optText = opt.text.toLowerCase().trim();
-                const optValue = opt.value.toLowerCase().trim();
                 return optText.includes(valueStr) || valueStr.includes(optText);
               });
             }
