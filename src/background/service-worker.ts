@@ -253,13 +253,8 @@ export async function generateFormFills(formData: ExtractedFormData, profile: Us
   // Helper to send progress updates to popup
   const sendProgress = (message: string) => {
     try {
-      const result = chrome.runtime.sendMessage({ type: 'PROGRESS_UPDATE', message });
-      // Only call catch if result is a Promise (in real extension, not in tests)
-      if (result && typeof result.catch === 'function') {
-        result.catch(() => {
-          // Popup might be closed, ignore errors
-        });
-      }
+      chrome.runtime.sendMessage({ type: 'PROGRESS_UPDATE', message });
+      // Popup might be closed, ignore errors
     } catch (error) {
       // Ignore errors - popup might be closed or in test environment
     }
