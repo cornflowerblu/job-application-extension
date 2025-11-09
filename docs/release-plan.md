@@ -132,15 +132,7 @@ npm run build
 
 #### 2.2 Create Release Package
 
-**Using npm script (recommended):**
-
-```bash
-npm run release:package
-```
-
-This creates `agentic-job-hunter-v0.1.0.zip` in the project root.
-
-**Manual method:**
+**Note:** With Release Please automation, you don't need to manually create ZIPs anymore! The workflow handles this automatically when you merge a Release PR. However, if you need to test packaging locally:
 
 ```bash
 # Build first
@@ -594,9 +586,9 @@ git add public/manifest.json package.json CHANGELOG.md
 git commit -m "chore: release v0.2.0"
 git push origin main
 
-# 4. Build and package
-npm run release:package
-# Creates: agentic-job-hunter-v0.2.0.zip
+# 4. Build and package (only if testing manually)
+npm run build
+cd dist && zip -r ../agentic-job-hunter-v0.2.0.zip . && cd ..
 
 # 5. Create new tag
 git tag -a v0.2.0 -m "Release v0.2.0"
@@ -702,13 +694,11 @@ When you have a new version:
 
 ## Quick Reference: Commands
 
-### Build and Package
+### Build and Package (for local testing only)
+
+**Note:** Release Please automation handles this automatically. Only use these for local testing.
 
 ```bash
-# Simple way (recommended)
-npm run release:package
-
-# Or manual way
 npm run build
 cd dist
 zip -r ../agentic-job-hunter-v$(node -p "require('../package.json').version").zip .
@@ -779,29 +769,23 @@ gh release create "v$VERSION" \
 
 ## Tips for Success
 
-1. **Trust the automation** - GitHub Actions handles testing, building, and releasing
-2. **Version conservatively** - Stay in 0.x.x until you're confident in stability
-3. **Sync versions** - Always update BOTH public/manifest.json and package.json
-4. **Keep CHANGELOG updated** - CI extracts release notes from it automatically
+1. **Trust the automation** - Release Please handles testing, building, and releasing automatically
+2. **Use Conventional Commits** - Required for Release Please to work correctly
+3. **Version conservatively** - Stay in 0.x.x until you're confident in stability
+4. **Keep CHANGELOG updated** - Release Please generates this automatically from commits
 5. **Watch the Actions tab** - Monitor your release build in real-time
-6. **Test locally first** - Use `npm run release:prep` to catch issues before tagging
-1. **Start with GitHub Releases** - Get comfortable with the build/package process before dealing with store review
-2. **Version conservatively** - Stay in 0.x.x until you're confident in stability
-3. **Test the package** - Always test the actual ZIP you're distributing, not your dev directory
-4. **Keep CHANGELOG updated** - Makes it easy to write release notes
-5. **Use the npm scripts** - `npm run release:prep` runs all tests, `npm run release:package` creates the ZIP
-6. **Sync versions** - Always update BOTH public/manifest.json and package.json
-7. **Document known issues** - Be upfront about limitations in release notes
-8. **Unlisted is your friend** - Use Unlisted store listing until you're ready for public discovery
+6. **Test locally first** - Use `npm run test:ci` to catch issues before merging
+7. **Test the package** - Always test the actual ZIP from GitHub Releases
+8. **Document known issues** - Be upfront about limitations in release notes
+9. **Unlisted is your friend** - Use Unlisted store listing until you're ready for public discovery
 
 ## Available npm Scripts for Releases
 
 **For local testing/validation:**
-- `npm run release:prep` - Runs full CI test suite (typecheck, build, tests)
-- `npm run release:package` - Builds and creates versioned ZIP file
-- `npm run release:all` - Runs prep then package (test the full workflow locally)
+- `npm run test:ci` - Runs full CI test suite (typecheck, build, tests)
+- Manual build and ZIP creation (see commands above)
 
-**Note:** These scripts are optional! The CI workflow handles everything when you push a tag. Use these scripts to test locally before creating the actual release.
+**Note:** Release Please automation handles testing, building, and packaging automatically when you merge a Release PR. These manual steps are only needed for local testing.
 
 ---
 
