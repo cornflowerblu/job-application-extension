@@ -94,7 +94,16 @@ test.describe('Real Claude API E2E Tests', () => {
       ],
     });
 
-    console.log('✅ Browser launched with extension loaded\n');
+    console.log('✅ Browser launched with extension loaded');
+
+    // Wait for service worker to register (with timeout)
+    try {
+      await context.waitForEvent('serviceworker', { timeout: 10000 });
+      console.log('✅ Service worker registered\n');
+    } catch (error) {
+      console.warn('⚠️  Service worker did not register within 10 seconds');
+      // Continue anyway - we'll handle it in the test
+    }
   });
 
   test.afterAll(async () => {
@@ -126,24 +135,22 @@ test.describe('Real Claude API E2E Tests', () => {
     const testFormPath = path.join(__dirname, 'fixtures', 'comprehensive-job-application.html');
     await page.goto(`file://${testFormPath}`);
     await page.waitForLoadState('domcontentloaded');
-    await page.waitForTimeout(2000); // Wait for extension and service worker to load
+    await page.waitForTimeout(1000); // Wait for content script to inject
 
-    // Wait for service worker to be available
-    let sw: any = null;
-    for (let i = 0; i < 10; i++) {
-      const workers = context.serviceWorkers();
-      if (workers.length > 0) {
-        sw = workers[0];
-        break;
-      }
-      await page.waitForTimeout(500);
+    // Get service worker (should be available from beforeAll)
+    const workers = context.serviceWorkers();
+    if (workers.length === 0) {
+      // If not available, wait for it with a longer timeout
+      console.log('⚠️  Service worker not found, waiting...');
+      await context.waitForEvent('serviceworker', { timeout: 15000 });
     }
 
+    const sw = context.serviceWorkers()[0];
     if (!sw) {
-      throw new Error('Service worker did not load after 5 seconds');
+      throw new Error('Service worker failed to load');
     }
 
-    console.log('✅ Service worker loaded');
+    console.log('✅ Service worker available');
 
     // Set up profile data in extension storage via service worker
     await sw.evaluate(({ apiKeyValue, profileData }) => {
