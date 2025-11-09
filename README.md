@@ -236,7 +236,7 @@ git push
 #    - Reviews commits since last release
 #    - Bumps version
 #    - Updates CHANGELOG.md
-#    - Updates package.json and manifest.json
+#    - Updates package.json
 
 # 3. Merge the Release PR in GitHub
 #    - Automatically tags the release
