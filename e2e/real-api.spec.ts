@@ -5,14 +5,14 @@
  *
  * SAFETY MEASURES:
  * 1. Only runs when ENABLE_REAL_API_TESTS=true
- * 2. Maximum of 3 API calls per test run
+ * 2. Maximum of 1 API call per test run
  * 3. Validates test API key is being used
  * 4. Each test is independent and isolated
  * 5. Timeouts prevent runaway tests
  *
  * COST ESTIMATE:
- * - ~3 API calls per full run
- * - ~$0.03 - $0.06 per run (assuming Sonnet 4.5 pricing)
+ * - 1 API call per full run (single comprehensive test)
+ * - ~$0.01 - $0.02 per run (assuming Sonnet 4.5 pricing)
  *
  * TO RUN:
  * ENABLE_REAL_API_TESTS=true npm run test:e2e:real-api
