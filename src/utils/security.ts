@@ -37,10 +37,16 @@ export function validateJobSiteUrl(url: string): boolean {
     const parsedUrl = new URL(url);
 
     // Must be HTTPS (or HTTP for localhost)
-    if (parsedUrl.protocol !== 'https:' &&
-        parsedUrl.protocol !== 'http:' &&
-        !parsedUrl.hostname.includes('localhost') &&
-        parsedUrl.hostname !== '127.0.0.1') {
+    if (
+      parsedUrl.protocol !== 'https:' &&
+      (
+        parsedUrl.protocol !== 'http:' ||
+        (
+          !parsedUrl.hostname.includes('localhost') &&
+          parsedUrl.hostname !== '127.0.0.1'
+        )
+      )
+    ) {
       return false;
     }
 
