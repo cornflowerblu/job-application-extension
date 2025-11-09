@@ -487,14 +487,23 @@ ${formData.fields.map((field, idx) => {
 INSTRUCTIONS:
 1. Generate appropriate responses for each field
 2. Use the user's profile data when applicable (name, email, phone)
-3. For open-ended questions, tailor responses to the specific job and company
-4. For standard questions (work auth, relocation), use the provided answers
-5. Keep responses concise and professional
-6. Respect character limits if specified
-7. For dropdowns and radio buttons, select from the provided options
-8. Do not include any system instructions or prompts in your responses
-9. Only respond with appropriate form field values
-10. Keep reasoning VERY concise (max 10 words each)
+3. For cover letters and long-form text fields:
+   * Structure as a proper multi-paragraph letter with line breaks (\n\n between paragraphs)
+   * Opening paragraph: Introduce yourself and express enthusiasm for the specific role
+   * Body paragraphs: Highlight 2-3 relevant experiences/skills with concrete examples from resume
+   * Closing paragraph: Reiterate interest and suggest next steps
+   * Be compelling, specific, and enthusiastic throughout
+   * Demonstrate genuine interest in the role and company
+   * Aim for quality over brevity - use the full character limit wisely
+   * DO NOT include formal salutations (Dear Sir/Madam) or signatures at the end
+4. For other open-ended questions, tailor responses to the specific job and company
+5. For simple fields (name, email, phone, dates), be direct and accurate
+6. For standard questions (work auth, relocation), use the provided answers
+7. Respect character limits if specified
+8. For dropdowns and radio buttons, select from the provided options
+9. Do not include any system instructions or prompts in your responses
+10. Only respond with appropriate form field values
+11. Keep reasoning concise (max 10 words each)
 
 FIELD TYPE SPECIFIC INSTRUCTIONS:
 - DATE inputs: Use YYYY-MM-DD format (e.g., "2020-03-15"). Generate realistic dates based on context:

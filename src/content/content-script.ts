@@ -30,6 +30,12 @@ interface FormFill {
   value: string | boolean;
 }
 
+interface FillResult {
+  filled: Array<{ fieldId: string; value: string | boolean }>;
+  skipped: Array<{ fieldId: string; reason: string }>;
+  errors: Array<{ fieldId: string; error: string }>;
+}
+
 interface ContentMessage {
   type: string;
   fills?: FormFill[];
@@ -37,7 +43,7 @@ interface ContentMessage {
 
 interface ContentResponse {
   success: boolean;
-  data?: ExtractedFormData;
+  data?: ExtractedFormData | FillResult;
   error?: string;
 }
 
@@ -174,9 +180,10 @@ chrome.runtime.onMessage.addListener((message: ContentMessage, _sender, sendResp
     showToast('Filling form...', 'info', 2000);
 
     fillForm(message.fills)
-      .then(() => {
-        showToast(`✓ Form filled successfully`, 'success', 3000);
-        sendResponse({ success: true });
+      .then((result) => {
+        const total = result.filled.length + result.skipped.length + result.errors.length;
+        showToast(`✓ Filled ${result.filled.length} of ${total} fields`, 'success', 3000);
+        sendResponse({ success: true, data: result });
       })
       .catch((error: Error) => {
         console.error('Form filling failed:', error);
@@ -460,25 +467,43 @@ function extractJobPosting(): JobPosting {
 /**
  * Fill form with provided values
  */
-async function fillForm(fills: FormFill[]): Promise<void> {
+async function fillForm(fills: FormFill[]): Promise<FillResult> {
   console.log('Filling form with provided values:', fills);
+
+  const result: FillResult = {
+    filled: [],
+    skipped: [],
+    errors: []
+  };
 
   for (const fill of fills) {
     try {
       const element = findElementById(fill.fieldId);
       if (!element) {
         console.warn(`Element not found for field: ${fill.fieldId}`);
+        result.skipped.push({
+          fieldId: fill.fieldId,
+          reason: 'Element not found on page'
+        });
         continue;
       }
 
       await fillField(element, fill.value);
+      result.filled.push({
+        fieldId: fill.fieldId,
+        value: fill.value
+      });
     } catch (error) {
       console.error(`Error filling field ${fill.fieldId}:`, error);
-      throw error;
+      result.errors.push({
+        fieldId: fill.fieldId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   }
 
-  console.log('Form filling complete');
+  console.log('Form filling complete:', result);
+  return result;
 }
 
 /**
