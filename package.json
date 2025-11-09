@@ -17,6 +17,9 @@
     "typecheck": "tsc --noEmit --project tsconfig.json && tsc --noEmit --project tsconfig.node.json",
     "lint": "echo 'No ESLint configuration found, skipping linting...'",
     "test:ci": "npm run typecheck && npm run build && npm run test",
+    "release:prep": "npm run test:ci",
+    "release:package": "npm run build && cd dist && zip -r ../agentic-job-hunter-v$(node -p \"require('../package.json').version\").zip . && cd ..",
+    "release:all": "npm run release:prep && npm run release:package",
     "prepare": "husky"
   },
   "dependencies": {

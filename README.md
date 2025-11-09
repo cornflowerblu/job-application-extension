@@ -1,6 +1,6 @@
-# Job Application Assistant
+# Agentic Job Hunter
 
-AI-powered browser extension to help fill job application forms using Claude.
+AI-powered Chrome extension that intelligently fills job application forms using Claude AI. Save time and maintain consistency across applications while keeping your data private and secure.
 
 ## Development Setup
 
@@ -94,15 +94,53 @@ See [`.github/BRANCH_PROTECTION.md`](.github/BRANCH_PROTECTION.md) for setup ins
 - **Claude 4.5 Sonnet** - AI model (via Anthropic API)
 - **Jest** - Testing framework
 
-## MVP Features
+## Features
 
-- ✅ One-time configuration (API key, profile, resume)
-- ✅ Manual form detection on job application pages
-- ✅ AI-powered form field analysis
-- ✅ Review and edit interface before filling
-- ✅ Automatic form filling
-- ✅ Error handling and state preservation
+- ✅ **Smart Form Detection** - Automatically detects job application forms and extracts all fillable fields
+- ✅ **AI-Powered Filling** - Uses Claude 4.5 Sonnet to intelligently generate responses based on your resume and profile
+- ✅ **Profile Management** - One-time setup with API key, resume, and biographical information
+- ✅ **Preview & Approve** - Review and edit all AI-generated responses before applying to the form
+- ✅ **Real-time Progress** - See what's happening as the extension fills your form
+- ✅ **EEO Support** - Optionally fill demographic fields based on your preferences
+- ✅ **Keyboard Shortcuts** - Quick access with Cmd+Shift+E (Mac) or Ctrl+Shift+E (Windows/Linux)
+- ✅ **Validation Handling** - Detects form validation errors (pause-and-notify workflow coming soon)
+
+## Privacy & Security
+
+Your privacy is our top priority:
+
+- **Local-Only Storage** - All your data (API key, resume, profile) is stored locally in Chrome's encrypted storage
+- **No Data Collection** - We don't track, log, or collect any of your data
+- **No Third-Party Sharing** - Data is only sent to Anthropic's Claude API when you trigger form analysis
+- **You Control API Usage** - You use your own Anthropic API key, so you have a direct relationship with Anthropic
+- **Open Source** - All code is available for review and audit
+
+📄 **[Read Full Privacy Policy](PRIVACY.md)**
+
+## Installation
+
+### For Users (Coming Soon)
+
+Releases will be available via GitHub Releases. See the [Release Plan](docs/release-plan.md) for details on upcoming distribution options.
+
+### For Developers
+
+See [Development Setup](#development-setup) below.
+
+## Requirements
+
+- **Chrome Browser** (or Chromium-based browser)
+- **Anthropic API Key** - Get one at [console.anthropic.com](https://console.anthropic.com)
+  - API usage is pay-as-you-go (typically $0.10-0.50 per application)
+
+## Development & Releases
+
+- **Development Guide** - See [Development Setup](#development-setup) section below
+- **Release Guide** - See [docs/release-plan.md](docs/release-plan.md) for creating releases
+- **Contributing** - This project follows the constitution defined in [.specify/memory/constitution.md](.specify/memory/constitution.md)
 
 ## License
 
-Private - Not for distribution
+MIT License - See [LICENSE](LICENSE) for details
+
+**Note:** This is an open-source project. Use of the Anthropic API requires your own API key and is subject to [Anthropic's Terms of Service](https://www.anthropic.com/legal/consumer-terms).
