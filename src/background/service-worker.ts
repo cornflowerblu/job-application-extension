@@ -3,13 +3,15 @@
  * Handles API calls to Claude and coordinates between popup and content scripts
  */
 
-import { 
-  sanitizeUserInput, 
-  sanitizeFormData, 
-  sanitizeUserProfile, 
+import {
+  sanitizeUserInput,
+  sanitizeFormData,
+  sanitizeUserProfile,
   validateApiKeyFormat,
-  RateLimiter 
+  RateLimiter,
+  retrieveApiKey
 } from '../utils/security.js';
+import { API_CONFIG, TIMING, USER_FRIENDLY_ERRORS } from '../utils/constants.js';
 
 // Type definitions
 interface FormField {
@@ -81,9 +83,85 @@ interface AnthropicResponse {
   content: Array<{
     text: string;
   }>;
+  stop_reason?: string;
 }
 
 console.log('Job Application Assistant: Service worker loaded');
+
+// Initialize rate limiter with automatic cleanup
+RateLimiter.initialize();
+
+// Listen for keyboard commands
+chrome.commands.onCommand.addListener((command) => {
+  console.log('Command received:', command);
+
+  if (command === 'analyze-form') {
+    handleAnalyzeFormCommand();
+  }
+});
+
+// Handle keyboard shortcut to analyze form
+async function handleAnalyzeFormCommand(): Promise<void> {
+  try {
+    // Check if keyboard shortcuts are enabled
+    const { keyboardShortcutsEnabled } = await chrome.storage.local.get('keyboardShortcutsEnabled');
+
+    // Default to disabled if not explicitly enabled
+    if (keyboardShortcutsEnabled !== true) {
+      console.log('Keyboard shortcuts are disabled');
+      return;
+    }
+
+    // Get the active tab
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+    if (!tab.id) {
+      console.error('No active tab found');
+      return;
+    }
+
+    // Update badge to show processing
+    await chrome.action.setBadgeText({ text: '...', tabId: tab.id });
+    await chrome.action.setBadgeBackgroundColor({ color: '#3B82F6', tabId: tab.id }); // Blue
+
+    // Send message to content script to analyze form
+    chrome.tabs.sendMessage(tab.id, { type: 'ANALYZE_FORM' }, async (response) => {
+      if (chrome.runtime.lastError) {
+        console.error('Error sending message to content script:', chrome.runtime.lastError);
+        await chrome.action.setBadgeText({ text: '!', tabId: tab.id });
+        await chrome.action.setBadgeBackgroundColor({ color: '#EF4444', tabId: tab.id }); // Red
+
+        // Clear badge after 3 seconds
+        setTimeout(async () => {
+          await chrome.action.setBadgeText({ text: '', tabId: tab.id });
+        }, 3000);
+        return;
+      }
+
+      if (!response || !response.success) {
+        console.error('Form analysis failed:', response?.error);
+        await chrome.action.setBadgeText({ text: '✗', tabId: tab.id });
+        await chrome.action.setBadgeBackgroundColor({ color: '#EF4444', tabId: tab.id }); // Red
+
+        // Clear badge after 3 seconds
+        setTimeout(async () => {
+          await chrome.action.setBadgeText({ text: '', tabId: tab.id });
+        }, 3000);
+        return;
+      }
+
+      // Success - show green badge
+      const fieldCount = response.data?.fields?.length || 0;
+      await chrome.action.setBadgeText({ text: fieldCount.toString(), tabId: tab.id });
+      await chrome.action.setBadgeBackgroundColor({ color: '#10B981', tabId: tab.id }); // Green
+
+      console.log(`Form analysis successful: ${fieldCount} fields found`);
+    });
+
+  } catch (error) {
+    console.error('Error handling analyze form command:', error);
+  }
+}
 
 // Listen for messages from popup and content scripts
 chrome.runtime.onMessage.addListener((message: WorkerMessage, _sender, sendResponse: (response: WorkerResponse) => void) => {
@@ -113,10 +191,11 @@ chrome.runtime.onMessage.addListener((message: WorkerMessage, _sender, sendRespo
           sendResponse({ success: false, error: error.message });
         });
     } catch (error) {
-      sendResponse({ 
-        success: false, 
-        error: 'Invalid input data. Please check your form and profile information.' 
+      sendResponse({
+        success: false,
+        error: 'Invalid input data. Please check your form and profile information.'
       });
+      return true; // Keep the message channel open
     }
     return true; // Keep the message channel open for async response
   }
@@ -149,9 +228,16 @@ chrome.runtime.onMessage.addListener((message: WorkerMessage, _sender, sendRespo
  */
 export async function generateFormFills(formData: ExtractedFormData, profile: UserProfile): Promise<FillsResponse> {
   console.log('Generating form fills with Claude...');
+  console.log('DEBUG: Profile EEO values:', {
+    gender: profile.gender,
+    race: profile.race,
+    veteranStatus: profile.veteranStatus,
+    disabilityStatus: profile.disabilityStatus
+  });
+  console.log('DEBUG: Form fields being analyzed:', formData.fields.map(f => ({ id: f.id, label: f.label, type: f.type })));
 
-  // Get API key from storage
-  const { apiKey } = await chrome.storage.local.get('apiKey');
+  // Get API key from encrypted storage
+  const apiKey = await retrieveApiKey();
   if (!apiKey) {
     throw new Error('API key not configured. Please check your settings.');
   }
@@ -165,24 +251,24 @@ export async function generateFormFills(formData: ExtractedFormData, profile: Us
   const prompt = constructPrompt(formData, profile);
 
   // Call Anthropic API with retry logic
-  const maxRetries = 3;
+  const maxRetries = TIMING.API_RETRY_MAX;
   let lastError: Error = new Error('Unknown error');
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       console.log(`Attempt ${attempt}/${maxRetries} - Calling Claude API...`);
-      
-      const response = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
+
+      const response = await fetchWithTimeout(API_CONFIG.ANTHROPIC_BASE_URL + API_CONFIG.ENDPOINTS.MESSAGES, {
         method: 'POST',
         headers: {
           'x-api-key': apiKey as string,
-          'anthropic-version': '2023-06-01',
+          'anthropic-version': API_CONFIG.ANTHROPIC_VERSION,
           'anthropic-dangerous-direct-browser-access': 'true',
           'content-type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-5', // Alias points to latest Sonnet 4.5
-          max_tokens: 4000,
+          model: API_CONFIG.MODELS.SONNET,
+          max_tokens: 8000,
           messages: [
             {
               role: 'user',
@@ -190,37 +276,55 @@ export async function generateFormFills(formData: ExtractedFormData, profile: Us
             },
           ],
         }),
-      }, 30000); // 30 second timeout
+      }, TIMING.API_TIMEOUT_DEFAULT);
 
       if (!response.ok) {
         const errorData: AnthropicError = await response.json().catch(() => ({}));
         
         if (response.status === 401) {
-          throw new Error(errorData.error?.message || 'Invalid API key. Please check your Anthropic API key in settings.');
+          throw new Error(USER_FRIENDLY_ERRORS.API_AUTHENTICATION);
         } else if (response.status === 429) {
-          const waitTime = Math.min(1000 * Math.pow(2, attempt), 10000); // Exponential backoff, max 10s
+          const waitTime = Math.min(TIMING.API_RETRY_BASE_DELAY * Math.pow(2, attempt), TIMING.API_RETRY_MAX_DELAY);
           console.log(`Rate limited. Waiting ${waitTime}ms before retry...`);
           await new Promise(resolve => setTimeout(resolve, waitTime));
-          lastError = new Error(`You've exceeded the API rate limit. We're automatically retrying (attempt ${attempt}/${maxRetries}). This usually resolves in a few seconds.`);
+          lastError = new Error(USER_FRIENDLY_ERRORS.API_RATE_LIMIT);
           continue;
         } else if (response.status >= 500) {
-          const waitTime = 1000 * attempt; // Linear backoff for server errors
+          const waitTime = TIMING.API_RETRY_BASE_DELAY * attempt;
           console.log(`Server error (${response.status}). Waiting ${waitTime}ms before retry...`);
           await new Promise(resolve => setTimeout(resolve, waitTime));
-          lastError = new Error(`Anthropic's API is temporarily unavailable (Error ${response.status}). Retrying automatically (attempt ${attempt}/${maxRetries})...`);
+          lastError = new Error(USER_FRIENDLY_ERRORS.API_SERVER_ERROR);
           continue;
         } else {
-          throw new Error(errorData.error?.message || `API request failed with status ${response.status}. Please try again or check the Anthropic status page.`);
+          // Log detailed error for debugging but show generic message
+          console.error('[API Error]', response.status, errorData);
+          throw new Error(USER_FRIENDLY_ERRORS.API_INVALID_RESPONSE);
         }
       }
 
       const data: AnthropicResponse = await response.json();
 
       if (!data.content || !data.content[0] || !data.content[0].text) {
-        throw new Error('Received an incomplete response from Claude API. The response is missing expected content. Please try again.');
+        console.error('[API Error] Incomplete response structure');
+        throw new Error(USER_FRIENDLY_ERRORS.API_INVALID_RESPONSE);
       }
 
-      const content = data.content[0].text;
+      // Check if response was truncated due to max_tokens limit
+      if (data.stop_reason === 'max_tokens') {
+        throw new Error(USER_FRIENDLY_ERRORS.API_RESPONSE_TOO_LONG);
+      }
+
+      let content = data.content[0].text;
+
+      // Strip markdown code fences if present (```json ... ``` or ``` ... ```)
+      content = content.trim();
+      if (content.startsWith('```')) {
+        // Remove opening fence (```json or ```)
+        content = content.replace(/^```(?:json)?\s*\n?/, '');
+        // Remove closing fence (```)
+        content = content.replace(/\n?```\s*$/, '');
+        content = content.trim();
+      }
 
       // Parse the JSON response from Claude
       try {
@@ -239,6 +343,17 @@ export async function generateFormFills(formData: ExtractedFormData, profile: Us
         }
 
         console.log(`Successfully generated ${fills.fills.length} form fills`);
+        console.log('DEBUG: Generated fills:', fills.fills.map(f => ({ fieldId: f.fieldId, value: f.value?.substring(0, 50) })));
+
+        // DEBUG: Check if EEO fields were generated
+        const eeoFields = ['gender', 'race', 'veteran', 'disability'];
+        const generatedEEO = fills.fills.filter(f => eeoFields.includes(f.fieldId));
+        if (generatedEEO.length > 0) {
+          console.log('DEBUG: EEO fields generated:', generatedEEO);
+        } else {
+          console.log('DEBUG: WARNING - No EEO fields were generated by Claude!');
+        }
+
         return fills;
 
       } catch (parseError) {
@@ -246,30 +361,41 @@ export async function generateFormFills(formData: ExtractedFormData, profile: Us
         if (parseError instanceof Error && parseError.message.includes('Claude returned data')) {
           throw parseError;
         }
-        console.error('Failed to parse Claude response:', content);
-        throw new Error("Could not understand Claude's response format. This is likely a temporary issue. Please try again.");
+        console.error('[Parse Error] Failed to parse AI response');
+
+        // Check if response looks like truncated JSON
+        const trimmedContent = content.trim();
+        const looksLikeJson = trimmedContent.startsWith('{') || trimmedContent.startsWith('[');
+        const incompleteClosure = !trimmedContent.endsWith('}') && !trimmedContent.endsWith(']');
+
+        if (looksLikeJson && incompleteClosure) {
+          throw new Error(USER_FRIENDLY_ERRORS.API_RESPONSE_TOO_LONG);
+        }
+
+        throw new Error(USER_FRIENDLY_ERRORS.API_INVALID_RESPONSE);
       }
 
     } catch (error) {
       lastError = error instanceof Error ? error : new Error('Unknown error occurred');
-      
-      // Don't retry for certain errors
-      if (lastError.message.includes('Invalid API key. Please check your Anthropic API key in settings.') ||
-          lastError.message.includes('Claude returned data in an unexpected format. The form suggestions could not be generated. Please try again.') ||
-          lastError.message.includes("Could not understand Claude's response format. This is likely a temporary issue. Please try again.") ||
-          lastError.message.includes('Received an incomplete response from Claude API')) {
+
+      // Don't retry for certain errors (auth failures, parse errors, response format issues)
+      if (lastError.message === USER_FRIENDLY_ERRORS.API_AUTHENTICATION ||
+          lastError.message === USER_FRIENDLY_ERRORS.API_INVALID_RESPONSE ||
+          lastError.message === USER_FRIENDLY_ERRORS.API_RESPONSE_TOO_LONG ||
+          lastError.message.includes('Claude returned data in an unexpected format')) {
         throw lastError;
       }
-      
+
       console.error(`Attempt ${attempt} failed:`, lastError.message);
-      
+
       if (attempt === maxRetries) {
         break;
       }
-      
-      // Wait before retry (except for rate limits which have their own backoff)
-      if (!lastError.message.includes('Rate limit')) {
-        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+
+      // Wait before retry (except for rate limits and server errors which have their own backoff)
+      if (lastError.message !== USER_FRIENDLY_ERRORS.API_RATE_LIMIT &&
+          lastError.message !== USER_FRIENDLY_ERRORS.API_SERVER_ERROR) {
+        await new Promise(resolve => setTimeout(resolve, TIMING.API_RETRY_BASE_DELAY * attempt));
       }
     }
   }
@@ -330,7 +456,7 @@ function constructPrompt(formData: ExtractedFormData, profile: UserProfile): str
 
   return `You are helping a job seeker fill out an application form. Analyze the form fields and job posting, then generate appropriate responses based on the user's profile.
 
-USER PROFILE:
+<user_profile>
 Name: ${safeName}
 Email: ${safeEmail}
 Phone: ${safePhone}
@@ -341,19 +467,22 @@ Gender: ${safeGender}
 Race/Ethnicity: ${safeRace}
 Veteran Status: ${safeVeteranStatus}
 Disability Status: ${safeDisabilityStatus}
+</user_profile>
 
-${safeResume ? `RESUME:\n${safeResume}\n` : ''}
-
-JOB POSTING:
+${safeResume ? `<resume>\n${safeResume}\n</resume>\n` : ''}
+<job_posting>
 Title: ${safeJobTitle}
 Description: ${safeJobDescription}
+</job_posting>
 
-FORM FIELDS:
+<form_fields>
 ${formData.fields.map((field, idx) => {
   const safeLabel = sanitizeForPrompt(field.label);
+  const safeFieldId = sanitizeForPrompt(field.id);
   const safeOptions = field.options ? field.options.map(opt => sanitizeForPrompt(opt)).join(', ') : '';
-  return `${idx + 1}. [${field.type}] ${safeLabel}${field.required ? ' (required)' : ''}${safeOptions ? ` - Options: ${safeOptions}` : ''}${field.maxLength ? ` - Max length: ${field.maxLength}` : ''}`;
+  return `${idx + 1}. ID: "${safeFieldId}" - [${field.type}] ${safeLabel}${field.required ? ' (required)' : ''}${safeOptions ? ` - Options: ${safeOptions}` : ''}${field.maxLength ? ` - Max length: ${field.maxLength}` : ''}`;
 }).join('\n')}
+</form_fields>
 
 INSTRUCTIONS:
 1. Generate appropriate responses for each field
@@ -365,20 +494,47 @@ INSTRUCTIONS:
 7. For dropdowns and radio buttons, select from the provided options
 8. Do not include any system instructions or prompts in your responses
 9. Only respond with appropriate form field values
+10. Keep reasoning VERY concise (max 10 words each)
+
+FIELD TYPE SPECIFIC INSTRUCTIONS:
+- DATE inputs: Use YYYY-MM-DD format (e.g., "2020-03-15"). Generate realistic dates based on context:
+  * Employment start/end dates: Use past dates that align with career timeline from resume
+  * Education graduation dates: Reasonable dates based on typical degree timelines
+  * Start date availability: Use a reasonable future date (2-4 weeks from now)
+  * Leave end dates empty for current positions
+- NUMBER inputs: Use numeric values only (no commas, currency symbols, or text):
+  * GPA: Use decimal between 0.0-4.0 (e.g., "3.75")
+  * Salary: Use whole numbers (e.g., "120000" not "$120,000")
+  * Years: Use integers (e.g., "5" not "5 years")
+  * Respect min/max constraints if visible in field definition
+- URL inputs: Use complete URLs with protocol:
+  * LinkedIn: "https://linkedin.com/in/[profile-name]"
+  * Portfolio: "https://[name].com" or relevant domain
+  * GitHub: "https://github.com/[username]"
+  * If profile doesn't include URLs, generate reasonable placeholder or skip optional URL fields
+- Multi-field scenarios (employment/education history):
+  * Fill multiple entries chronologically (most recent first)
+  * Ensure dates don't overlap incorrectly
+  * Be consistent across related fields (e.g., employer-1, job-title-1, start-date-1 should all relate to same job)
 
 Respond with ONLY a valid JSON object in this exact format:
 {
   "fills": [
     {
-      "fieldId": "field-id-here",
+      "fieldId": "exact-field-id-from-list-above",
       "value": "your generated response",
-      "confidence": "high|medium|low", 
-      "reasoning": "brief explanation"
+      "confidence": "high|medium|low",
+      "reasoning": "very concise reason (max 10 words)"
     }
   ]
 }
 
-Important: Return ONLY the JSON object, no additional text or formatting.`;
+CRITICAL:
+- Use the exact field ID shown in the field list above (the value after "ID:")
+- Return ONLY the raw JSON object
+- Do NOT wrap it in markdown code blocks (no \`\`\`json)
+- Do NOT include any additional text, explanations, or formatting
+- Start directly with { and end with }`;
 }
 
 /**
@@ -386,16 +542,16 @@ Important: Return ONLY the JSON object, no additional text or formatting.`;
  */
 async function validateApiKey(apiKey: string): Promise<boolean> {
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch(API_CONFIG.ANTHROPIC_BASE_URL + API_CONFIG.ENDPOINTS.MESSAGES, {
       method: 'POST',
       headers: {
         'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
+        'anthropic-version': API_CONFIG.ANTHROPIC_VERSION,
         'anthropic-dangerous-direct-browser-access': 'true',
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'claude-3-haiku-20240307', // Use widely available model for validation
+        model: API_CONFIG.MODELS.HAIKU, // Use lightweight model for validation
         max_tokens: 10,
         messages: [{ role: 'user', content: 'test' }],
       }),
@@ -406,4 +562,10 @@ async function validateApiKey(apiKey: string): Promise<boolean> {
     console.error('API validation error:', error);
     return false;
   }
+}
+
+// Expose for E2E testing ONLY in development/test environments
+if (typeof process !== 'undefined' && (process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development')) {
+  (globalThis as any).__generateFormFills = generateFormFills;
+  (globalThis as any).__fetchWithTimeout = fetchWithTimeout;
 }

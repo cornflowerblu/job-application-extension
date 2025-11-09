@@ -2,6 +2,8 @@
  * Security utilities for the Job Application Assistant extension
  */
 
+import { LIMITS, CRYPTO, TIMING, STORAGE_KEYS, ALLOWED_JOB_SITE_PATTERNS, URL_VALIDATION_MODE } from './constants';
+
 /**
  * Sanitize string to prevent injection attacks in prompts
  */
@@ -9,18 +11,56 @@ export function sanitizeUserInput(input: string): string {
   if (!input || typeof input !== 'string') {
     return '';
   }
-  
+
   // Remove potential prompt injection patterns
   return input
     // Remove control characters
     .replace(/[\x00-\x1F\x7F]/g, '')
     // Limit excessive whitespace
     .replace(/\s+/g, ' ')
-    // Remove potential AI instruction patterns
-    .replace(/\b(ignore|forget|override|system|assistant|user|instruction|prompt|role)\s*[:=]/gi, '[removed]')
+    // Remove potential AI instruction patterns (enhanced)
+    .replace(/\b(ignore|forget|override|disregard|system|assistant|user|instruction|prompt|role|act as|pretend|you are)\s*[:=]/gi, '[removed]')
+    // Remove attempts to break out of context
+    .replace(/(```)|(^---|---$)/gm, '')
+    // Remove XML-like tags that could confuse the model
+    .replace(/<\/?[a-z][^>]*>/gi, '')
     // Trim and limit length
     .trim()
-    .slice(0, 10000); // Reasonable limit for user input
+    .slice(0, LIMITS.USER_INPUT_MAX);
+}
+
+/**
+ * Validate URL against job site allowlist
+ */
+export function validateJobSiteUrl(url: string): boolean {
+  try {
+    const parsedUrl = new URL(url);
+
+    // Must be HTTPS (or HTTP for localhost)
+    if (
+      parsedUrl.protocol !== 'https:' &&
+      (
+        parsedUrl.protocol !== 'http:' ||
+        (
+          !parsedUrl.hostname.includes('localhost') &&
+          parsedUrl.hostname !== '127.0.0.1'
+        )
+      )
+    ) {
+      return false;
+    }
+
+    // In permissive mode, allow all HTTPS URLs
+    if (URL_VALIDATION_MODE === 'permissive' && parsedUrl.protocol === 'https:') {
+      return true;
+    }
+
+    // In strict mode, check against allowlist
+    const urlString = parsedUrl.toString();
+    return ALLOWED_JOB_SITE_PATTERNS.some(pattern => pattern.test(urlString));
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -44,9 +84,10 @@ export function sanitizeFormData(formData: any): any {
   if (formData.url && typeof formData.url === 'string') {
     try {
       const url = new URL(formData.url);
-      // Only allow https URLs
-      if (url.protocol === 'https:') {
+      if (validateJobSiteUrl(url.toString())) {
         sanitized.url = url.toString();
+      } else {
+        console.warn('[Security] URL not in allowlist:', url.hostname);
       }
     } catch {
       // Invalid URL, leave empty
@@ -94,7 +135,12 @@ export function sanitizeUserProfile(profile: any): any {
     phone: sanitizePhone(profile.phone || ''),
     resume: sanitizeUserInput(profile.resume || '').slice(0, 20000),
     workAuthorization: sanitizeUserInput(profile.workAuthorization || '').slice(0, 100),
-    willingToRelocate: sanitizeUserInput(profile.willingToRelocate || '').slice(0, 100)
+    willingToRelocate: sanitizeUserInput(profile.willingToRelocate || '').slice(0, 100),
+    // EEO fields (optional)
+    gender: sanitizeUserInput(profile.gender || '').slice(0, 100),
+    race: sanitizeUserInput(profile.race || '').slice(0, 100),
+    veteranStatus: sanitizeUserInput(profile.veteranStatus || '').slice(0, 200),
+    disabilityStatus: sanitizeUserInput(profile.disabilityStatus || '').slice(0, 200)
   };
 }
 
@@ -120,22 +166,52 @@ function validateMaxLength(maxLength: any): number | null {
 }
 
 /**
- * Sanitize email address
+ * Sanitize and validate email address (RFC 5322 compliant)
  */
 function sanitizeEmail(email: string): string {
   const sanitized = sanitizeUserInput(email);
-  // Basic email validation
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(sanitized) ? sanitized.slice(0, 254) : '';
+
+  // RFC 5322 compliant email validation (simplified)
+  const emailRegex = /^[a-zA-Z0-9.!#$%&'*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+
+  if (!emailRegex.test(sanitized)) {
+    return '';
+  }
+
+  // Additional checks
+  const [localPart, domain] = sanitized.split('@');
+
+  // Local part max 64 chars, domain max 255 chars
+  if (localPart.length > LIMITS.EMAIL_LOCAL_MAX || domain.length > LIMITS.EMAIL_DOMAIN_MAX) {
+    return '';
+  }
+
+  // Domain must have at least one dot
+  if (!domain.includes('.')) {
+    return '';
+  }
+
+  return sanitized.slice(0, LIMITS.EMAIL_MAX); // RFC 5321
 }
 
 /**
- * Sanitize phone number
+ * Sanitize and validate phone number
  */
 function sanitizePhone(phone: string): string {
   const sanitized = sanitizeUserInput(phone);
+
   // Remove non-digit characters except +, -, (, ), and spaces
-  return sanitized.replace(/[^\d+\-() ]/g, '').slice(0, 20);
+  const cleaned = sanitized.replace(/[^\d+\-() ]/g, '');
+
+  // Count digits only
+  const digitCount = cleaned.replace(/[^\d]/g, '').length;
+
+  // Valid phone: 7-15 digits (covers international formats)
+  if (digitCount < LIMITS.PHONE_MIN_DIGITS || digitCount > LIMITS.PHONE_MAX_DIGITS) {
+    return '';
+  }
+
+  return cleaned.slice(0, LIMITS.PHONE_MAX);
 }
 
 /**
@@ -167,11 +243,11 @@ export class SecureStorage {
       {
         name: 'PBKDF2',
         salt: new TextEncoder().encode(salt),
-        iterations: 100000,
+        iterations: CRYPTO.PBKDF2_ITERATIONS,
         hash: 'SHA-256'
       },
       keyMaterial,
-      { name: 'AES-GCM', length: 256 },
+      { name: 'AES-GCM', length: CRYPTO.AES_KEY_LENGTH },
       false,
       ['encrypt', 'decrypt']
     );
@@ -180,7 +256,7 @@ export class SecureStorage {
   static async encryptData(data: string, userSalt: string): Promise<string> {
     try {
       const key = await this.deriveKey('job-app-extension', userSalt);
-      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const iv = crypto.getRandomValues(new Uint8Array(CRYPTO.GCM_IV_LENGTH));
       
       const encrypted = await crypto.subtle.encrypt(
         { name: 'AES-GCM', iv: iv },
@@ -203,8 +279,8 @@ export class SecureStorage {
   static async decryptData(encryptedData: string, userSalt: string): Promise<string> {
     try {
       const combined = new Uint8Array(atob(encryptedData).split('').map(c => c.charCodeAt(0)));
-      const iv = combined.slice(0, 12);
-      const encrypted = combined.slice(12);
+      const iv = combined.slice(0, CRYPTO.GCM_IV_LENGTH);
+      const encrypted = combined.slice(CRYPTO.GCM_IV_LENGTH);
 
       const key = await this.deriveKey('job-app-extension', userSalt);
       
@@ -223,10 +299,86 @@ export class SecureStorage {
 }
 
 /**
- * Rate limiting utility
+ * Helper functions for secure API key storage
+ */
+
+/**
+ * Store API key securely with encryption
+ */
+export async function storeApiKeySecurely(apiKey: string): Promise<void> {
+  const salt = crypto.randomUUID();
+  const encrypted = await SecureStorage.encryptData(apiKey, salt);
+  await chrome.storage.local.set({
+    [STORAGE_KEYS.API_KEY]: encrypted,
+    [STORAGE_KEYS.API_KEY_SALT]: salt
+  });
+}
+
+/**
+ * Retrieve and decrypt API key from storage
+ */
+export async function retrieveApiKey(): Promise<string | null> {
+  const result = await chrome.storage.local.get([STORAGE_KEYS.API_KEY, STORAGE_KEYS.API_KEY_SALT]);
+  const encryptedApiKey = result[STORAGE_KEYS.API_KEY];
+  const apiKeySalt = result[STORAGE_KEYS.API_KEY_SALT];
+
+  if (!encryptedApiKey || !apiKeySalt) return null;
+  return await SecureStorage.decryptData(encryptedApiKey, apiKeySalt);
+}
+
+/**
+ * Rate limiting utility with automatic cleanup to prevent memory leaks
  */
 export class RateLimiter {
   private static requests = new Map<string, number[]>();
+  private static cleanupInterval: ReturnType<typeof setInterval> | null = null;
+
+  /**
+   * Initialize the rate limiter with periodic cleanup
+   */
+  static initialize(): void {
+    if (this.cleanupInterval) return; // Already initialized
+
+    this.cleanupInterval = setInterval(() => {
+      this.cleanup();
+    }, TIMING.RATE_LIMIT_CLEANUP_INTERVAL);
+  }
+
+  /**
+   * Clean up expired entries from the rate limiter
+   */
+  static cleanup(maxAge: number = TIMING.RATE_LIMIT_MAX_AGE): void {
+    const now = Date.now();
+    const keysToDelete: string[] = [];
+
+    this.requests.forEach((timestamps, key) => {
+      // Remove timestamps older than maxAge
+      const validTimestamps = timestamps.filter(time => now - time < maxAge);
+
+      if (validTimestamps.length === 0) {
+        keysToDelete.push(key);
+      } else {
+        this.requests.set(key, validTimestamps);
+      }
+    });
+
+    keysToDelete.forEach(key => this.requests.delete(key));
+
+    if (keysToDelete.length > 0) {
+      console.debug(`[RateLimiter] Cleaned up ${keysToDelete.length} expired entries`);
+    }
+  }
+
+  /**
+   * Shutdown the rate limiter and clear all data
+   */
+  static shutdown(): void {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+    }
+    this.requests.clear();
+  }
 
   static checkRateLimit(key: string, maxRequests: number, windowMs: number): boolean {
     const now = Date.now();
@@ -234,11 +386,6 @@ export class RateLimiter {
 
     // Remove old requests outside the window
     const validRequests = requests.filter(time => now - time < windowMs);
-
-    // Clean up empty entries to prevent memory leaks
-    if (validRequests.length === 0) {
-      this.requests.delete(key);
-    }
 
     if (validRequests.length >= maxRequests) {
       return false; // Rate limit exceeded
@@ -252,8 +399,22 @@ export class RateLimiter {
   static getRemainingTime(key: string, windowMs: number): number {
     const requests = this.requests.get(key) || [];
     if (requests.length === 0) return 0;
-    
+
     const oldest = Math.min(...requests);
     return Math.max(0, windowMs - (Date.now() - oldest));
+  }
+
+  /**
+   * Get statistics for monitoring
+   */
+  static getStats(): { totalKeys: number; totalRequests: number } {
+    let totalRequests = 0;
+    this.requests.forEach(timestamps => {
+      totalRequests += timestamps.length;
+    });
+    return {
+      totalKeys: this.requests.size,
+      totalRequests
+    };
   }
 }

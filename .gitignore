@@ -29,3 +29,8 @@ yarn-error.log*
 coverage/
 test-resume.txt
 *.tsbuildinfo
+playwright-report/
+test-results/
+
+# Temporary files
+prompts/

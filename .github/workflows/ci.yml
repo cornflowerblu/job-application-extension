@@ -80,11 +80,53 @@ jobs:
           fi
         continue-on-error: false
 
+  e2e:
+    name: E2E Tests (Playwright)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.x"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Build extension
+        run: npm run build
+
+      - name: Run Playwright tests (excluding real-api)
+        run: npx playwright test e2e/form-filling.spec.ts
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-results
+          path: test-results/
+          retention-days: 7
+
   # Require all checks to pass before allowing merge
   all-checks:
     name: All Checks Complete
     runs-on: ubuntu-latest
-    needs: [test, lint]
+    needs: [test, lint, e2e]
     if: always()
 
     steps:
@@ -98,6 +140,12 @@ jobs:
         if: needs.lint.result != 'success'
         run: |
           echo "Linting failed or was cancelled"
+          exit 1
+
+      - name: Check e2e results
+        if: needs.e2e.result != 'success'
+        run: |
+          echo "E2E tests failed or were cancelled"
           exit 1
 
       - name: All checks passed
