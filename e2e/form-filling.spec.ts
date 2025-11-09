@@ -11,8 +11,10 @@ test.describe('Form Filling E2E', () => {
   test.beforeAll(async () => {
     // Launch browser with extension loaded
     const pathToExtension = path.join(__dirname, '..', 'dist');
+    // Use headless mode in CI, headed mode for local debugging
+    const isCI = process.env.CI === 'true';
     context = await chromium.launchPersistentContext('', {
-      headless: false, // Extensions require headed mode
+      headless: isCI, // Headless in CI, headed for local development
       args: [
         `--disable-extensions-except=${pathToExtension}`,
         `--load-extension=${pathToExtension}`,

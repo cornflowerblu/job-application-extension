@@ -84,8 +84,10 @@ test.describe('Real Claude API E2E Tests', () => {
       throw new Error('SAFETY: Extension not built! Run "npm run build" first.');
     }
 
+    // Use headless mode in CI, headed mode for local debugging
+    const isCI = process.env.CI === 'true';
     context = await chromium.launchPersistentContext('', {
-      headless: false, // Extensions require headed mode
+      headless: isCI, // Headless in CI, headed for local development
       args: [
         `--disable-extensions-except=${pathToExtension}`,
         `--load-extension=${pathToExtension}`,
