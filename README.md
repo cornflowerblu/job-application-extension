@@ -193,7 +193,7 @@ This project uses **[Release Please](https://github.com/googleapis/release-pleas
 - `feat!:` or `BREAKING CHANGE:` - Breaking change → bumps **major** version (0.1.0 → 1.0.0)
 - `docs:` - Documentation only
 - `test:` - Adding tests
-- `chore:` - Maintenance (won't trigger release)
+- `chore:` - Maintenance (won't bump version, but included in CHANGELOG)
 - `refactor:` - Code refactoring
 - `perf:` - Performance improvement
 - `ci:` - CI/CD changes
@@ -236,7 +236,7 @@ git push
 #    - Reviews commits since last release
 #    - Bumps version
 #    - Updates CHANGELOG.md
-#    - Updates package.json and manifest.json
+#    - Updates package.json
 
 # 3. Merge the Release PR in GitHub
 #    - Automatically tags the release
