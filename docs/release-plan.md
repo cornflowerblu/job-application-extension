@@ -785,6 +785,12 @@ gh release create "v$VERSION" \
 4. **Keep CHANGELOG updated** - CI extracts release notes from it automatically
 5. **Watch the Actions tab** - Monitor your release build in real-time
 6. **Test locally first** - Use `npm run release:prep` to catch issues before tagging
+1. **Start with GitHub Releases** - Get comfortable with the build/package process before dealing with store review
+2. **Version conservatively** - Stay in 0.x.x until you're confident in stability
+3. **Test the package** - Always test the actual ZIP you're distributing, not your dev directory
+4. **Keep CHANGELOG updated** - Makes it easy to write release notes
+5. **Use the npm scripts** - `npm run release:prep` runs all tests, `npm run release:package` creates the ZIP
+6. **Sync versions** - Always update BOTH public/manifest.json and package.json
 7. **Document known issues** - Be upfront about limitations in release notes
 8. **Unlisted is your friend** - Use Unlisted store listing until you're ready for public discovery
 
