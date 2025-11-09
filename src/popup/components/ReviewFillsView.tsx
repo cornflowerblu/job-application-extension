@@ -152,7 +152,7 @@ export function ReviewFillsView({ fills, formFields, onApprove, onCancel }: Revi
                       value={fill.value}
                       onChange={(e) => handleValueChange(fill.fieldId, e.target.value)}
                       rows={3}
-                      maxLength={field?.maxLength || undefined}
+                      maxLength={field?.maxLength ?? undefined}
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   ) : field?.type === 'select' && field?.options ? (
@@ -170,7 +170,7 @@ export function ReviewFillsView({ fills, formFields, onApprove, onCancel }: Revi
                       type={field?.type === 'email' ? 'email' : field?.type === 'tel' ? 'tel' : 'text'}
                       value={fill.value}
                       onChange={(e) => handleValueChange(fill.fieldId, e.target.value)}
-                      maxLength={field?.maxLength || undefined}
+                      maxLength={field?.maxLength ?? undefined}
                       placeholder={field?.placeholder}
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
