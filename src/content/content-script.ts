@@ -509,8 +509,12 @@ async function fillForm(fills: FormFill[]): Promise<FillResult> {
 
       await fillField(element, fill.value);
 
-      // Check for validation errors after a brief delay to let validation run
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Only apply delay for field types that commonly have async validation
+      const ASYNC_VALIDATION_TYPES = new Set(['email', 'password']);
+      const POST_FILL_DELAY_MS = 100;
+      if (ASYNC_VALIDATION_TYPES.has(fill.type)) {
+        await new Promise((resolve) => setTimeout(resolve, POST_FILL_DELAY_MS));
+      }
       const validation = hasValidationError(element);
 
       if (validation.hasError) {
