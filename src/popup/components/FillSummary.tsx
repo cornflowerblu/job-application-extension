@@ -1,8 +1,4 @@
-interface FillResult {
-  filled: Array<{ fieldId: string; value: string | boolean }>;
-  skipped: Array<{ fieldId: string; reason: string }>;
-  errors: Array<{ fieldId: string; error: string }>;
-}
+import { FillResult } from '../../types';
 
 import { FormField } from '../../types';
 
