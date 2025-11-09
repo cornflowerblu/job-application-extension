@@ -154,7 +154,7 @@ This extension is open source. You can:
 For questions, concerns, or privacy-related issues:
 
 - **GitHub Issues**: https://github.com/cornflowerblue/agentic-job-hunter/issues
-- **Email**: [Your contact email here]
+- **Email**: agentic-job-hunter@protonmail.com
 
 ## California Privacy Rights (CCPA)
 
