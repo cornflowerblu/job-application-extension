@@ -122,11 +122,8 @@ test.describe('Real Claude API E2E Tests', () => {
     // DO NOT mock the API - let real calls go through!
     // (This is the key difference from form-filling.spec.ts)
 
-    // Set up profile data in extension storage via background script
-    await page.goto('chrome://extensions/');
-    await page.waitForTimeout(1000); // Wait for extensions page to load
-
-    // Execute script to set storage in the extension's context
+    // Set up profile data in extension storage via service worker
+    // Note: Cannot navigate to chrome://extensions/ in headless/CI mode
     const serviceWorkers = context.serviceWorkers();
     if (serviceWorkers.length > 0) {
       const sw = serviceWorkers[0];
@@ -161,8 +158,9 @@ test.describe('Real Claude API E2E Tests', () => {
       });
     }
 
-    // Navigate to comprehensive test form (via HTTP server, not file://)
-    await page.goto('http://localhost:8888/e2e/fixtures/comprehensive-job-application.html');
+    // Navigate to comprehensive test form
+    const testFormPath = path.join(__dirname, 'fixtures', 'comprehensive-job-application.html');
+    await page.goto(`file://${testFormPath}`);
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(1000); // Wait for content script to inject
 
