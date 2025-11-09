@@ -96,15 +96,7 @@ docs: update installation instructions
 
 #### Step 1: Write Conventional Commits
 
-When developing features or fixes, use conventional commit messages:
-
-```bash
-git commit -m "feat: add form field validation"
-git commit -m "fix: resolve popup rendering issue"
-git commit -m "docs: update README with new features"
-```
-
-#### Step 2: Push to Main (or Merge PRs)
+**Note:** With Release Please automation, you don't need to manually create ZIPs anymore! The workflow handles this automatically when you merge a Release PR. However, if you need to test packaging locally:
 
 ```bash
 git push origin main
@@ -489,6 +481,9 @@ When you want to release a new version to the Chrome Web Store:
 
 **Users will auto-update** within a few hours of approval. Chrome checks for updates automatically.
 
+# 4. Build and package (only if testing manually)
+npm run build
+cd dist && zip -r ../agentic-job-hunter-v0.2.0.zip . && cd ..
 
 
 ---
@@ -589,6 +584,16 @@ When you want to release a new version to the Chrome Web Store:
 
 ## Quick Reference
 
+### Build and Package (for local testing only)
+
+**Note:** Release Please automation handles this automatically. Only use these for local testing.
+
+```bash
+npm run build
+cd dist
+zip -r ../agentic-job-hunter-v$(node -p "require('../package.json').version").zip .
+cd ..
+```
 ### Conventional Commit Examples
 
 ```bash
@@ -659,6 +664,23 @@ git commit -m "chore: update dependencies"
 
 ## Tips for Success
 
+1. **Trust the automation** - Release Please handles testing, building, and releasing automatically
+2. **Use Conventional Commits** - Required for Release Please to work correctly
+3. **Version conservatively** - Stay in 0.x.x until you're confident in stability
+4. **Keep CHANGELOG updated** - Release Please generates this automatically from commits
+5. **Watch the Actions tab** - Monitor your release build in real-time
+6. **Test locally first** - Use `npm run test:ci` to catch issues before merging
+7. **Test the package** - Always test the actual ZIP from GitHub Releases
+8. **Document known issues** - Be upfront about limitations in release notes
+9. **Unlisted is your friend** - Use Unlisted store listing until you're ready for public discovery
+
+## Available npm Scripts for Releases
+
+**For local testing/validation:**
+- `npm run test:ci` - Runs full CI test suite (typecheck, build, tests)
+- Manual build and ZIP creation (see commands above)
+
+**Note:** Release Please automation handles testing, building, and packaging automatically when you merge a Release PR. These manual steps are only needed for local testing.
 1. **Trust Release Please** - It handles versioning, changelogs, and releases automatically
 2. **Use conventional commits** - This is the ONLY manual step; the format determines everything
 3. **Merge frequently** - Small, focused changes are easier to review and release
