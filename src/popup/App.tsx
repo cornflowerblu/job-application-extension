@@ -200,12 +200,15 @@ function App() {
       console.log('Setting fills, count:', fillResponse.fills.fills.length);
       setFills(fillResponse.fills.fills);
 
+      // Clear loading state before showing review screen
+      setLoading(false);
+      setLoadingMessage('');
+
       // Show review screen instead of auto-filling
       setShowReviewFills(true);
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');
-    } finally {
       setLoading(false);
       setLoadingMessage('');
     }
