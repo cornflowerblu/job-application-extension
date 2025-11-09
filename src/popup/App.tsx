@@ -110,21 +110,26 @@ function App() {
     });
   }, []);
 
-  // Save session state whenever critical state changes
+  // Save session state with debouncing to avoid excessive writes
+  // Excludes loadingMessage from triggering saves as it updates frequently during progress
   useEffect(() => {
-    const sessionState: SessionState = {
-      loading,
-      loadingMessage,
-      formData,
-      fills,
-      fillResult,
-      showReviewFills,
-      showSummary,
-      error,
-      noFormDetected
-    };
-    chrome.storage.session.set({ popupState: sessionState });
-  }, [loading, loadingMessage, formData, fills, fillResult, showReviewFills, showSummary, error, noFormDetected]);
+    const timeoutId = setTimeout(() => {
+      const sessionState: SessionState = {
+        loading,
+        loadingMessage,
+        formData,
+        fills,
+        fillResult,
+        showReviewFills,
+        showSummary,
+        error,
+        noFormDetected
+      };
+      chrome.storage.session.set({ popupState: sessionState });
+    }, 500); // Debounce for 500ms
+
+    return () => clearTimeout(timeoutId);
+  }, [loading, formData, fills, fillResult, showReviewFills, showSummary, error, noFormDetected]);
 
   // Listen for progress updates from service worker and content script
   // Stable message handler for Chrome runtime messages
