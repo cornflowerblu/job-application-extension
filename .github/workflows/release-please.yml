@@ -16,24 +16,8 @@ jobs:
       - uses: googleapis/release-please-action@v4
         id: release
         with:
-          # This should match your package name
+          # Simple node release type (no deprecated params)
           release-type: node
-          # Package name - used for release title
-          package-name: agentic-job-hunter
-          # Changelog sections based on conventional commits
-          changelog-types: '[
-            {"type":"feat","section":"Features","hidden":false},
-            {"type":"fix","section":"Bug Fixes","hidden":false},
-            {"type":"perf","section":"Performance Improvements","hidden":false},
-            {"type":"revert","section":"Reverts","hidden":false},
-            {"type":"docs","section":"Documentation","hidden":false},
-            {"type":"style","section":"Styles","hidden":true},
-            {"type":"chore","section":"Miscellaneous","hidden":true},
-            {"type":"refactor","section":"Code Refactoring","hidden":false},
-            {"type":"test","section":"Tests","hidden":false},
-            {"type":"build","section":"Build System","hidden":false},
-            {"type":"ci","section":"Continuous Integration","hidden":false}
-          ]'
 
       # The following steps only run if a release was created
       - name: Checkout code
