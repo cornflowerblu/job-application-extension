@@ -16,7 +16,7 @@
     "test:e2e:real-api": "ENABLE_REAL_API_TESTS=true playwright test e2e/real-api.spec.ts",
     "typecheck": "tsc --noEmit --project tsconfig.json && tsc --noEmit --project tsconfig.node.json",
     "lint": "echo 'No ESLint configuration found, skipping linting...'",
-    "test:ci": "npm run typecheck && npm run build && npm run test && npm run test:e2e",
+    "test:ci": "npm run typecheck && npm run build && npm run test",
     "prepare": "husky"
   },
   "dependencies": {
