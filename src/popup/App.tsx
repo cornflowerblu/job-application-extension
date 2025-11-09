@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 
 // Import security utilities
 import { storeApiKeySecurely, retrieveApiKey } from '../utils/security';
+import { ReviewFillsView } from './components/ReviewFillsView';
 const sanitizeInput = (input: string, maxLength: number = 1000): string => {
   if (!input || typeof input !== 'string') return '';
   return input
@@ -56,6 +57,7 @@ function App() {
   const [formData, setFormData] = useState<ExtractedFormData | null>(null);
   const [fills, setFills] = useState<Fill[]>([]);
   const [showSettings, setShowSettings] = useState(false);
+  const [showReviewFills, setShowReviewFills] = useState(false);
 
   useEffect(() => {
     // Check if extension is configured
@@ -112,7 +114,10 @@ function App() {
 
       console.log('Setting fills, count:', fillResponse.fills.fills.length);
       setFills(fillResponse.fills.fills);
-      
+
+      // Show review screen instead of auto-filling
+      setShowReviewFills(true);
+
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');
     } finally {
@@ -120,45 +125,67 @@ function App() {
     }
   };
 
-  const handleFillForm = async () => {
-    if (!formData || fills.length === 0) return;
-    
+  const handleApproveAndFill = async (approvedFills: Fill[]) => {
+    if (!formData || approvedFills.length === 0) {
+      setError('No fills to apply');
+      return;
+    }
+
     setLoading(true);
     setError(null);
-    
+    setShowReviewFills(false);
+
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      
+
       if (!tab.id) {
         throw new Error('No active tab found');
       }
 
-      const fillData = fills.map(fill => ({
+      const fillData = approvedFills.map(fill => ({
         fieldId: fill.fieldId,
         value: fill.value
       }));
 
-      const response = await chrome.tabs.sendMessage(tab.id, { 
+      const response = await chrome.tabs.sendMessage(tab.id, {
         type: 'FILL_FORM',
         fills: fillData
       });
-      
+
       if (!response.success) {
         throw new Error(response.error || 'Failed to fill form');
       }
 
       // Show success message
       setError(null);
-      
+      // TODO: Show completion summary here
+
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fill form');
+      setShowReviewFills(true); // Go back to review on error
     } finally {
       setLoading(false);
     }
   };
 
+  const handleCancelReview = () => {
+    setShowReviewFills(false);
+    // Keep fills in state so user can re-review if needed
+  };
+
   if (showSettings) {
     return <SettingsView onBack={() => setShowSettings(false)} onConfigured={() => setIsConfigured(true)} />;
+  }
+
+  if (showReviewFills && formData && fills.length > 0) {
+    return (
+      <ReviewFillsView
+        fills={fills}
+        formFields={formData.fields}
+        onApprove={handleApproveAndFill}
+        onCancel={handleCancelReview}
+      />
+    );
   }
 
   return (
@@ -203,21 +230,6 @@ function App() {
         </div>
       )}
 
-      {fills.length > 0 && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-          <p className="text-sm text-green-800 font-medium">
-            AI suggestions ready: {fills.length} fields
-          </p>
-          <div className="mt-2 space-y-1">
-            {fills.slice(0, 3).map((fill, idx) => (
-              <div key={idx} className="text-xs text-green-600">
-                {formData?.fields.find(f => f.id === fill.fieldId)?.label}: {fill.value.slice(0, 50)}...
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       <div className="space-y-3">
         <button
           className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -233,16 +245,6 @@ function App() {
         >
           {loading ? 'Analyzing...' : 'Analyze Form on This Page'}
         </button>
-
-        {fills.length > 0 && (
-          <button
-            className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={loading}
-            onClick={handleFillForm}
-          >
-            {loading ? 'Filling...' : 'Fill Form with AI Suggestions'}
-          </button>
-        )}
       </div>
 
       <div className="mt-6 text-xs text-gray-500 text-center">
