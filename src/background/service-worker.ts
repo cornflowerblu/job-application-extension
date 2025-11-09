@@ -547,7 +547,12 @@ INSTRUCTIONS:
    * Similarly for education: Look for "school", "university", "degree", "education-1", "graduation-date", "gpa"
    * Extract from resume: company names, job titles, dates (convert to YYYY-MM-DD), responsibilities, locations
 5. For cover letters and long-form text fields:
-   * Structure as a proper multi-paragraph letter with line breaks (\n\n between paragraphs)
+   * Structure as a proper multi-paragraph letter with actual blank lines (real line breaks) between paragraphs. For example:
+     Paragraph 1 text.
+     
+     Paragraph 2 text.
+     
+     Paragraph 3 text.
    * Opening paragraph: Introduce yourself and express enthusiasm for the specific role
    * Body paragraphs: Highlight 2-3 relevant experiences/skills with concrete examples from resume
    * Closing paragraph: Reiterate interest and suggest next steps
