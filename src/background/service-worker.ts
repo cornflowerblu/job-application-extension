@@ -377,26 +377,25 @@ export async function generateFormFills(formData: ExtractedFormData, profile: Us
 
     } catch (error) {
       lastError = error instanceof Error ? error : new Error('Unknown error occurred');
-      
-      // Don't retry for certain errors
-      if (lastError.message.includes('Invalid API key. Please check your Anthropic API key in settings.') ||
-          lastError.message.includes('Claude returned data in an unexpected format. The form suggestions could not be generated. Please try again.') ||
-          lastError.message.includes("Could not understand Claude's response format. This is likely a temporary issue. Please try again.") ||
-          lastError.message.includes('Received an incomplete response from Claude API') ||
-          lastError.message.includes('The AI response was too long and was cut off') ||
-          lastError.message.includes('The AI response appears to be incomplete')) {
+
+      // Don't retry for certain errors (auth failures, parse errors, response format issues)
+      if (lastError.message === USER_FRIENDLY_ERRORS.API_AUTHENTICATION ||
+          lastError.message === USER_FRIENDLY_ERRORS.API_INVALID_RESPONSE ||
+          lastError.message === USER_FRIENDLY_ERRORS.API_RESPONSE_TOO_LONG ||
+          lastError.message.includes('Claude returned data in an unexpected format')) {
         throw lastError;
       }
-      
+
       console.error(`Attempt ${attempt} failed:`, lastError.message);
-      
+
       if (attempt === maxRetries) {
         break;
       }
-      
-      // Wait before retry (except for rate limits which have their own backoff)
-      if (!lastError.message.includes('Rate limit')) {
-        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+
+      // Wait before retry (except for rate limits and server errors which have their own backoff)
+      if (lastError.message !== USER_FRIENDLY_ERRORS.API_RATE_LIMIT &&
+          lastError.message !== USER_FRIENDLY_ERRORS.API_SERVER_ERROR) {
+        await new Promise(resolve => setTimeout(resolve, TIMING.API_RETRY_BASE_DELAY * attempt));
       }
     }
   }
