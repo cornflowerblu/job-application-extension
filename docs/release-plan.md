@@ -36,7 +36,7 @@ This guide covers the release process for the AJH Chrome extension using **[Rele
 
 **TL;DR:** Update versions, update CHANGELOG, commit, tag, push. CI does the rest!
 
-The release process is **fully automated** via GitHub Actions (`.github/workflows/release.yml`):
+The release process is **fully automated** via GitHub Actions (`.github/workflows/release-please.yml`):
 - Triggered when you push a version tag (e.g., `v0.1.0`)
 - Runs full test suite, builds, packages, and creates GitHub Release
 - No manual ZIP creation or release drafting needed
