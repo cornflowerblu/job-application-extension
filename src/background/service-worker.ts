@@ -250,13 +250,34 @@ export async function generateFormFills(formData: ExtractedFormData, profile: Us
   // Construct the prompt for Claude
   const prompt = constructPrompt(formData, profile);
 
+  // Helper to send progress updates to popup
+  const sendProgress = (message: string) => {
+    try {
+      const result = chrome.runtime.sendMessage({ type: 'PROGRESS_UPDATE', message });
+      // Only call catch if result is a Promise (in real extension, not in tests)
+      if (result && typeof result.catch === 'function') {
+        result.catch(() => {
+          // Popup might be closed, ignore errors
+        });
+      }
+    } catch (error) {
+      // Ignore errors - popup might be closed or in test environment
+    }
+  };
+
+  // Send initial progress
+  sendProgress(`Analyzing ${formData.fields.length} form fields with Claude AI...`);
+
   // Call Anthropic API with retry logic
   const maxRetries = TIMING.API_RETRY_MAX;
+
   let lastError: Error = new Error('Unknown error');
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      console.log(`Attempt ${attempt}/${maxRetries} - Calling Claude API...`);
+      const progressMsg = `Attempt ${attempt}/${maxRetries} - Calling Claude API...`;
+      console.log(progressMsg);
+      sendProgress(progressMsg);
 
       const response = await fetchWithTimeout(API_CONFIG.ANTHROPIC_BASE_URL + API_CONFIG.ENDPOINTS.MESSAGES, {
         method: 'POST',
@@ -285,13 +306,17 @@ export async function generateFormFills(formData: ExtractedFormData, profile: Us
           throw new Error(USER_FRIENDLY_ERRORS.API_AUTHENTICATION);
         } else if (response.status === 429) {
           const waitTime = Math.min(TIMING.API_RETRY_BASE_DELAY * Math.pow(2, attempt), TIMING.API_RETRY_MAX_DELAY);
-          console.log(`Rate limited. Waiting ${waitTime}ms before retry...`);
+          const waitMsg = `Rate limited. Waiting ${Math.ceil(waitTime / 1000)}s before retry...`;
+          console.log(waitMsg);
+          sendProgress(waitMsg);
           await new Promise(resolve => setTimeout(resolve, waitTime));
           lastError = new Error(USER_FRIENDLY_ERRORS.API_RATE_LIMIT);
           continue;
         } else if (response.status >= 500) {
           const waitTime = TIMING.API_RETRY_BASE_DELAY * attempt;
-          console.log(`Server error (${response.status}). Waiting ${waitTime}ms before retry...`);
+          const waitMsg = `Server error (${response.status}). Waiting ${Math.ceil(waitTime / 1000)}s before retry...`;
+          console.log(waitMsg);
+          sendProgress(waitMsg);
           await new Promise(resolve => setTimeout(resolve, waitTime));
           lastError = new Error(USER_FRIENDLY_ERRORS.API_SERVER_ERROR);
           continue;
@@ -342,7 +367,9 @@ export async function generateFormFills(formData: ExtractedFormData, profile: Us
           }
         }
 
-        console.log(`Successfully generated ${fills.fills.length} form fills`);
+        const successMsg = `Successfully generated ${fills.fills.length} form fills`;
+        console.log(successMsg);
+        sendProgress(successMsg);
         console.log('DEBUG: Generated fills:', fills.fills.map(f => ({ fieldId: f.fieldId, value: f.value?.substring(0, 50) })));
 
         // DEBUG: Check if EEO fields were generated

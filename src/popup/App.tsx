@@ -122,6 +122,18 @@ function App() {
     chrome.storage.session.set({ popupState: sessionState });
   }, [loading, loadingMessage, formData, fills, fillResult, showReviewFills, showSummary, error]);
 
+  // Listen for progress updates from service worker
+  useEffect(() => {
+    const handleMessage = (message: { type: string; message?: string }) => {
+      if (message.type === 'PROGRESS_UPDATE' && message.message) {
+        setLoadingMessage(message.message);
+      }
+    };
+
+    chrome.runtime.onMessage.addListener(handleMessage);
+    return () => chrome.runtime.onMessage.removeListener(handleMessage);
+  }, []);
+
   const handleAnalyzeForm = async () => {
     setLoading(true);
     setError(null);
@@ -154,8 +166,7 @@ function App() {
         throw new Error('Please configure your API key and profile first');
       }
 
-      // Step 3: Send to Claude API
-      setLoadingMessage('Analyzing form with Claude AI...');
+      // Step 3: Send to Claude API (service worker will send progress updates)
       console.log('Sending GENERATE_FILLS request to service worker...');
       const fillResponse = await chrome.runtime.sendMessage({
         type: 'GENERATE_FILLS',
@@ -168,10 +179,6 @@ function App() {
       if (!fillResponse.success) {
         throw new Error(fillResponse.error || 'Failed to generate form fills');
       }
-
-      // Step 4: Process results
-      setLoadingMessage('Processing AI suggestions...');
-      await new Promise(resolve => setTimeout(resolve, 300)); // Brief pause so user sees this message
 
       console.log('Setting fills, count:', fillResponse.fills.fills.length);
       setFills(fillResponse.fills.fills);
