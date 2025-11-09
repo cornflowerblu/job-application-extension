@@ -53,6 +53,12 @@ export interface FillsResponse {
   fills: Fill[];
 }
 
+export interface FillResult {
+  filled: Array<{ fieldId: string; value: string | boolean }>;
+  skipped: Array<{ fieldId: string; reason: string }>;
+  errors: Array<{ fieldId: string; error: string }>;
+}
+
 // ===== STORAGE TYPES =====
 
 export interface StoredData {

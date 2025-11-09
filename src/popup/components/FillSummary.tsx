@@ -1,6 +1,4 @@
-import { FillResult } from '../../types';
-
-import { FormField } from '../../types';
+import { FillResult, FormField } from '../../types';
 
 interface FillSummaryProps {
   result: FillResult;
@@ -56,7 +54,7 @@ export function FillSummary({ result, formFields, onClose }: FillSummaryProps) {
           <div>
             <h3 className="text-sm font-semibold text-green-700 mb-2">Successfully Filled</h3>
             <div className="space-y-2">
-              {result.filled.slice(0, 5).map((item) => (
+              {result.filled.slice(0, 5).map((item: { fieldId: string; value: string | boolean }) => (
                 <div
                   key={item.fieldId}
                   className="bg-white border border-green-200 rounded px-3 py-2"
@@ -82,7 +80,7 @@ export function FillSummary({ result, formFields, onClose }: FillSummaryProps) {
           <div>
             <h3 className="text-sm font-semibold text-yellow-700 mb-2">Skipped Fields</h3>
             <div className="space-y-2">
-              {result.skipped.map((item) => (
+              {result.skipped.map((item: { fieldId: string; reason: string }) => (
                 <div
                   key={item.fieldId}
                   className="bg-white border border-yellow-200 rounded px-3 py-2"
@@ -100,7 +98,7 @@ export function FillSummary({ result, formFields, onClose }: FillSummaryProps) {
           <div>
             <h3 className="text-sm font-semibold text-red-700 mb-2">Errors</h3>
             <div className="space-y-2">
-              {result.errors.map((item) => (
+              {result.errors.map((item: { fieldId: string; error: string }) => (
                 <div
                   key={item.fieldId}
                   className="bg-white border border-red-200 rounded px-3 py-2"
