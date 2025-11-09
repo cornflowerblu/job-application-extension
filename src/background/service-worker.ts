@@ -485,9 +485,21 @@ ${formData.fields.map((field, idx) => {
 </form_fields>
 
 INSTRUCTIONS:
-1. Generate appropriate responses for each field
+1. Generate appropriate responses for EVERY field in the form
 2. Use the user's profile data when applicable (name, email, phone)
-3. For cover letters and long-form text fields:
+3. **CRITICAL: EMPLOYMENT & EDUCATION HISTORY** - These are the MOST IMPORTANT and tedious fields to fill:
+   * SCAN the form fields list for employment/work history patterns like:
+     - Fields containing: "employer", "company", "organization", "job", "position", "title", "work"
+     - Numbered patterns: "employer-1", "company-1", "position-1", "job-title-1", etc.
+     - Date fields: "start-date", "end-date", "employment-start", "employment-end"
+     - Description fields: "responsibilities", "duties", "job-description", "description-1"
+   * PARSE the resume thoroughly and extract ALL employment positions
+   * For EACH position in the resume, generate fills for the corresponding numbered field set
+   * Order: Most recent position → position-1, previous → position-2, etc.
+   * Fill ALL numbered employment entries that exist in the form (if form has 5 positions, fill all 5 from resume)
+   * Similarly for education: Look for "school", "university", "degree", "education-1", "graduation-date", "gpa"
+   * Extract from resume: company names, job titles, dates (convert to YYYY-MM-DD), responsibilities, locations
+4. For cover letters and long-form text fields:
    * Structure as a proper multi-paragraph letter with line breaks (\n\n between paragraphs)
    * Opening paragraph: Introduce yourself and express enthusiasm for the specific role
    * Body paragraphs: Highlight 2-3 relevant experiences/skills with concrete examples from resume
@@ -496,13 +508,12 @@ INSTRUCTIONS:
    * Demonstrate genuine interest in the role and company
    * Aim for quality over brevity - use the full character limit wisely
    * DO NOT include formal salutations (Dear Sir/Madam) or signatures at the end
-4. For other open-ended questions, tailor responses to the specific job and company
-5. For simple fields (name, email, phone, dates), be direct and accurate
-6. For standard questions (work auth, relocation), use the provided answers
-7. Respect character limits if specified
-8. For dropdowns and radio buttons, select from the provided options
-9. Do not include any system instructions or prompts in your responses
-10. Only respond with appropriate form field values
+5. For other open-ended questions, tailor responses to the specific job and company
+6. For simple fields (name, email, phone), be direct and accurate
+7. For standard questions (work auth, relocation), use the provided answers
+8. Respect character limits if specified
+9. For dropdowns and radio buttons, select from the provided options
+10. Do not include any system instructions or prompts in your responses
 11. Keep reasoning concise (max 10 words each)
 
 FIELD TYPE SPECIFIC INSTRUCTIONS:
@@ -521,10 +532,6 @@ FIELD TYPE SPECIFIC INSTRUCTIONS:
   * Portfolio: "https://[name].com" or relevant domain
   * GitHub: "https://github.com/[username]"
   * If profile doesn't include URLs, generate reasonable placeholder or skip optional URL fields
-- Multi-field scenarios (employment/education history):
-  * Fill multiple entries chronologically (most recent first)
-  * Ensure dates don't overlap incorrectly
-  * Be consistent across related fields (e.g., employer-1, job-title-1, start-date-1 should all relate to same job)
 
 Respond with ONLY a valid JSON object in this exact format:
 {

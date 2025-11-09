@@ -58,6 +58,18 @@ interface FillResult {
   errors: Array<{ fieldId: string; error: string }>;
 }
 
+// Session state for popup persistence
+interface SessionState {
+  loading: boolean;
+  loadingMessage: string;
+  formData: ExtractedFormData | null;
+  fills: Fill[];
+  fillResult: FillResult | null;
+  showReviewFills: boolean;
+  showSummary: boolean;
+  error: string | null;
+}
+
 function App() {
   const [isConfigured, setIsConfigured] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -70,6 +82,7 @@ function App() {
   const [showReviewFills, setShowReviewFills] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
 
+  // Load persisted session state on mount
   useEffect(() => {
     // Check if extension is configured
     retrieveApiKey().then(apiKey => {
@@ -77,7 +90,37 @@ function App() {
         setIsConfigured(!!(apiKey && result.profile));
       });
     });
+
+    // Restore session state
+    chrome.storage.session.get(['popupState'], (result) => {
+      if (result.popupState) {
+        const state: SessionState = result.popupState;
+        setLoading(state.loading || false);
+        setLoadingMessage(state.loadingMessage || '');
+        setFormData(state.formData || null);
+        setFills(state.fills || []);
+        setFillResult(state.fillResult || null);
+        setShowReviewFills(state.showReviewFills || false);
+        setShowSummary(state.showSummary || false);
+        setError(state.error || null);
+      }
+    });
   }, []);
+
+  // Save session state whenever critical state changes
+  useEffect(() => {
+    const sessionState: SessionState = {
+      loading,
+      loadingMessage,
+      formData,
+      fills,
+      fillResult,
+      showReviewFills,
+      showSummary,
+      error
+    };
+    chrome.storage.session.set({ popupState: sessionState });
+  }, [loading, loadingMessage, formData, fills, fillResult, showReviewFills, showSummary, error]);
 
   const handleAnalyzeForm = async () => {
     setLoading(true);
