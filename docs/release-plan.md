@@ -6,69 +6,11 @@ This guide covers the release process for the AJH Chrome extension using **[Rele
 
 ## Table of Contents
 
-1. [Release Process Overview](#release-process-overview)
-2. [Phase 1: MVP Release via GitHub](#phase-1-mvp-release-via-github)
-3. [Phase 2: Chrome Web Store (Unlisted)](#phase-2-chrome-web-store-unlisted)
-4. [Troubleshooting](#troubleshooting)
-
----
-
-## Release Process Overview
-
-This project uses **Release Please** for completely automated releases! 🎉
-
-### How It Works
-
-1. **Write commits using Conventional Commits format** (see below)
-2. **Push to main** (or merge PRs)
-3. **Release Please bot automatically**:
-   - Analyzes your commits
-   - Calculates the next version
-   - Generates CHANGELOG
-   - Creates a "Release PR"
-4. **Merge the Release PR** → automatic tag + GitHub Release + ZIP file!
-
-**No manual version updates, tagging, or changelog editing needed!**
-
-### Conventional Commit Format
-
-**You MUST use this format for commits** (or releases won't work):
-
-```bash
-<type>: <description>
-
-[optional body]
-
-[optional footer]
-```
-
-**Types:**
-- `feat:` - New feature → bumps **minor** version (0.1.0 → 0.2.0)
-- `fix:` - Bug fix → bumps **patch** version (0.1.0 → 0.1.1)
-- `feat!:` or `BREAKING CHANGE:` - Breaking change → bumps **major** version (0.1.0 → 1.0.0)
-- `docs:` - Documentation only
-- `test:` - Adding tests
-- `chore:` - Maintenance (won't trigger release)
-- `refactor:` - Code refactoring
-- `perf:` - Performance improvement
-- `ci:` - CI/CD changes
-
-**Examples:**
-
-```bash
-# Feature (minor version bump)
-feat: add support for multi-page forms
-
-# Bug fix (patch version bump)
-fix: correct API key validation logic
-
-# Breaking change (major version bump)
-feat!: change storage format to encrypted JSON
-
-# Multiple types
-fix: resolve form detection on LinkedIn
-docs: update installation instructions
-```
+1. [Phase 1: MVP Release via GitHub](#phase-1-mvp-release-via-github)
+2. [Phase 2: Chrome Web Store (Unlisted)](#phase-2-chrome-web-store-unlisted)
+3. [Updating Existing Releases](#updating-existing-releases)
+4. [Release Process Overview](#release-process-overview)
+5. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -82,7 +24,7 @@ docs: update installation instructions
 - Complete control over distribution
 - Free (no fees)
 - Quick iteration cycles
-- **Fully automated with Release Please**
+- **Automated via GitHub Actions** - Just push a tag!
 
 **Limitations:**
 
@@ -90,59 +32,229 @@ docs: update installation instructions
 - Users must manually install and update
 - Requires Developer Mode in Chrome
 
-### 🤖 Automated Release Workflow
+### 🤖 Automated Release Process
 
-**The process is completely hands-off once you merge PRs!**
+**TL;DR:** Update versions, update CHANGELOG, commit, tag, push. CI does the rest!
 
-#### Step 1: Write Conventional Commits
+The release process is **fully automated** via GitHub Actions (`.github/workflows/release-please.yml`):
+- Triggered when you push a version tag (e.g., `v0.1.0`)
+- Runs full test suite, builds, packages, and creates GitHub Release
+- No manual ZIP creation or release drafting needed
 
-**Note:** With Release Please automation, you don't need to manually create ZIPs anymore! The workflow handles this automatically when you merge a Release PR. However, if you need to test packaging locally:
+**Quick Release:**
+```bash
+# 1. Update versions
+# Edit: public/manifest.json and package.json
+
+# 2. Update CHANGELOG.md
+
+# 3. Commit and tag
+git add public/manifest.json package.json CHANGELOG.md
+git commit -m "chore: release v0.1.0"
+git tag -a v0.1.0 -m "Release v0.1.0"
+git push origin main --tags
+
+# 4. Watch it build! (check Actions tab on GitHub)
+```
+
+The sections below provide detailed step-by-step instructions.
+
+### Step 1: Prepare the Release
+
+#### 1.1 Update Version Number
+
+Edit **both** version files:
+
+**`public/manifest.json`**:
+```json
+{
+  "version": "0.1.0",
+  ...
+}
+```
+
+**`package.json`**:
+```json
+{
+  "version": "0.1.0",
+  ...
+}
+```
+
+**Important:** Keep both versions in sync!
+
+**Version numbering guide:**
+
+- `0.1.0` - Initial MVP
+- `0.2.0` - Minor feature additions
+- `0.2.1` - Bug fixes
+- `1.0.0` - First stable release
+
+#### 1.2 Update CHANGELOG.md
+
+Add release notes at the top:
+
+```markdown
+## [0.1.0] - 2025-11-09
+
+### Added
+
+- Initial MVP release
+- Form detection and analysis
+- AI-powered form filling
+- Configuration management
+- Basic error handling
+
+### Known Issues
+
+- Does not support multi-page forms yet
+- Limited to single active application
+```
+
+#### 1.3 Commit Version Changes
 
 ```bash
+git add public/manifest.json package.json CHANGELOG.md
+git commit -m "chore: release v0.1.0"
 git push origin main
 ```
 
-Or merge your PRs through GitHub's UI.
+### Step 2: Build the Extension
 
-#### Step 3: Wait for Release Please
+#### 2.1 Create Production Build
 
-After pushing to main, Release Please will:
+```bash
+# Run your build process (adjust command as needed)
+npm run build
 
-1. **Analyze commits** since the last release
-2. **Calculate next version** based on conventional commits
-3. **Generate/update CHANGELOG** automatically
-4. **Create or update a Release PR**
+# Or if you don't have a build process yet:
+# Just make sure you have a clean directory structure
+```
 
-The Release PR will show:
-- New version number
-- Generated CHANGELOG entries
-- Updated `package.json` and `public/manifest.json`
+#### 2.2 Create Release Package
 
-#### Step 4: Review and Merge the Release PR
+**Using npm script (recommended):**
 
-1. Go to the **Pull Requests** tab
-2. Find the Release PR (titled like "chore(main): release 0.2.0")
-3. Review the changes:
-   - Check version number is correct
-   - Review auto-generated CHANGELOG
-   - Verify manifest versions are updated
-4. **Merge the Release PR**
+```bash
+npm run release:package
+```
 
-#### Step 5: Automatic Release Creation
+This creates `agentic-job-hunter-v0.1.0.zip` in the project root.
 
-Once you merge the Release PR, the workflow automatically:
+**Manual method:**
 
-1. ✅ Creates a git tag (e.g., `v0.2.0`)
-2. ✅ Runs full test suite
+```bash
+# Build first
+npm run build
+
+# Navigate to build output
+cd dist
+
+# Create zip (dist/ already contains only production files)
+zip -r ../agentic-job-hunter-v0.1.0.zip .
+
+# Return to root
+cd ..
+```
+
+**Note:** The `dist/` directory already excludes development files, so no need for complex exclusions.
+
+**Required files in the ZIP:**
+
+- `manifest.json`
+- All `.js` files (background, content scripts, popup)
+- All `.html` files
+- All `.css` files
+- `icons/` directory
+- Any other assets (images, fonts, etc.)
+
+**Exclude from ZIP:**
+
+- `.git/`
+- `node_modules/`
+- Test files
+- Documentation (README.md, etc.)
+- Development configs
+- `package.json` and `package-lock.json` (unless needed for build)
+
+### Step 3: Create and Push Git Tag
+
+**⚡ This triggers the automated release workflow!**
+
+```bash
+# Create annotated tag
+git tag -a v0.1.0 -m "Release v0.1.0 - Initial MVP"
+
+# Push tag to GitHub (this triggers the release workflow)
+git push origin v0.1.0
+```
+
+**What happens automatically:**
+1. ✅ CI runs full test suite (`npm run test:ci`)
+2. ✅ Verifies version consistency (tag, manifest.json, package.json)
 3. ✅ Builds the extension
-4. ✅ Creates `agentic-job-hunter-v0.2.0.zip`
-5. ✅ Creates GitHub Release with CHANGELOG
-6. ✅ Uploads ZIP file as release asset
-7. ✅ Marks 0.x versions as pre-release
+4. ✅ Creates `agentic-job-hunter-v0.1.0.zip`
+5. ✅ Extracts release notes from CHANGELOG.md
+6. ✅ Creates GitHub Release
+7. ✅ Uploads ZIP file as release asset
+8. ✅ Marks 0.x versions as pre-release automatically
 
-**That's it!** No manual steps needed.
+**Monitor the release:**
+- Go to **Actions** tab on GitHub to watch the workflow
+- Release appears in **Releases** section when complete
+- Typically takes 2-3 minutes
 
-### Installation Instructions for Users
+### Step 4: Manual Release (Optional / Fallback)
+
+If you need to create a release manually (e.g., if CI is down):
+
+#### Via GitHub Web Interface:
+
+1. Go to your repository on GitHub
+2. Click **"Releases"** (right sidebar)
+3. Click **"Draft a new release"**
+4. Fill out the form:
+   - **Tag:** Select `v0.1.0` (or create new if not pushed yet)
+   - **Release title:** `v0.1.0 - Initial MVP`
+   - **Description:** Copy from CHANGELOG.md or write summary:
+
+     ```markdown
+     ## Initial MVP Release
+
+     This is the first working version of the Agentic Job Hunter extension.
+
+     ### Features
+
+     - Form detection and field extraction
+     - AI-powered form filling with Claude
+     - Configuration management (API key, resume, profile)
+     - Preview before applying fills
+
+     ### Installation Instructions
+
+     See below for how to install this extension.
+
+     ### Known Issues
+
+     - Multi-page forms not yet supported
+     - Limited to single active application at a time
+     ```
+
+   - **Attach files:** Drag and drop `agentic-job-hunter-v0.1.0.zip`
+   - **Pre-release:** Check this for MVP versions (< 1.0.0)
+5. Click **"Publish release"**
+
+#### Via GitHub CLI (if installed):
+
+```bash
+gh release create v0.1.0 \
+  agentic-job-hunter-v0.1.0.zip \
+  --title "v0.1.0 - Initial MVP" \
+  --notes-file CHANGELOG.md \
+  --prerelease
+```
+
+### Step 5: Installation Instructions for Users
 
 Include these instructions in your release notes or README:
 
@@ -187,7 +299,7 @@ When a new version is released:
 **Note:** Your configuration data is stored in Chrome's sync storage, so it will persist across updates.
 ```
 
-### Testing the Installation
+### Step 6: Test the Installation
 
 Before sharing with others, test the release package yourself:
 

@@ -13,6 +13,11 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          # Simple node release type (no deprecated params)
+          release-type: node
       - uses: googleapis/release-please-action@v4.1.0
         id: release
         with:
