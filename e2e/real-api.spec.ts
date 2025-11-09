@@ -122,47 +122,59 @@ test.describe('Real Claude API E2E Tests', () => {
     // DO NOT mock the API - let real calls go through!
     // (This is the key difference from form-filling.spec.ts)
 
-    // Set up profile data in extension storage via service worker
-    // Note: Cannot navigate to chrome://extensions/ in headless/CI mode
-    const serviceWorkers = context.serviceWorkers();
-    if (serviceWorkers.length > 0) {
-      const sw = serviceWorkers[0];
-      await sw.evaluate(({ apiKeyValue, profileData }) => {
-        return new Promise<void>((resolve) => {
-          chrome.storage.local.set(
-            {
-              apiKey: apiKeyValue,
-              profile: profileData,
-              keyboardShortcutsEnabled: true, // CRITICAL: Enable keyboard shortcuts!
-            },
-            () => {
-              console.log('Storage set successfully');
-              resolve();
-            }
-          );
-        });
-      }, {
-        apiKeyValue: apiKey,
-        profileData: {
-          name: 'Test User',
-          email: 'test@example.com',
-          phone: '555-1234',
-          resume: 'Experienced software engineer with 5 years in web development.',
-          workAuthorization: 'U.S. Citizen',
-          willingToRelocate: 'Yes',
-          gender: 'Male',
-          race: 'White',
-          veteranStatus: 'I am not a protected veteran',
-          disabilityStatus: 'No, I do not have a disability',
-        },
-      });
-    }
-
-    // Navigate to comprehensive test form
+    // Navigate to comprehensive test form first to trigger extension loading
     const testFormPath = path.join(__dirname, 'fixtures', 'comprehensive-job-application.html');
     await page.goto(`file://${testFormPath}`);
     await page.waitForLoadState('domcontentloaded');
-    await page.waitForTimeout(1000); // Wait for content script to inject
+    await page.waitForTimeout(2000); // Wait for extension and service worker to load
+
+    // Wait for service worker to be available
+    let sw: any = null;
+    for (let i = 0; i < 10; i++) {
+      const workers = context.serviceWorkers();
+      if (workers.length > 0) {
+        sw = workers[0];
+        break;
+      }
+      await page.waitForTimeout(500);
+    }
+
+    if (!sw) {
+      throw new Error('Service worker did not load after 5 seconds');
+    }
+
+    console.log('✅ Service worker loaded');
+
+    // Set up profile data in extension storage via service worker
+    await sw.evaluate(({ apiKeyValue, profileData }) => {
+      return new Promise<void>((resolve) => {
+        chrome.storage.local.set(
+          {
+            apiKey: apiKeyValue,
+            profile: profileData,
+            keyboardShortcutsEnabled: true, // CRITICAL: Enable keyboard shortcuts!
+          },
+          () => {
+            console.log('Storage set successfully');
+            resolve();
+          }
+        );
+      });
+    }, {
+      apiKeyValue: apiKey,
+      profileData: {
+        name: 'Test User',
+        email: 'test@example.com',
+        phone: '555-1234',
+        resume: 'Experienced software engineer with 5 years in web development.',
+        workAuthorization: 'U.S. Citizen',
+        willingToRelocate: 'Yes',
+        gender: 'Male',
+        race: 'White',
+        veteranStatus: 'I am not a protected veteran',
+        disabilityStatus: 'No, I do not have a disability',
+      },
+    });
 
     // Check if content script is loaded
     const isContentScriptLoaded = await page.evaluate(() => {
@@ -176,14 +188,7 @@ test.describe('Real Claude API E2E Tests', () => {
     // Step 1: Extract form data via service worker
     console.log('Analyzing form fields...');
 
-    const workers = context.serviceWorkers();
-    if (workers.length === 0) {
-      throw new Error('No service workers found!');
-    }
-
-    const sw = workers[0];
-
-    // Send ANALYZE_FORM to content script to get form data
+    // Send ANALYZE_FORM to content script to get form data (reuse sw from above)
     const formData = await sw.evaluate(async () => {
       const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
       const tabId = tabs[0].id!;
