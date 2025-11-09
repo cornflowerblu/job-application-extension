@@ -520,7 +520,8 @@ ${formData.fields.map((field, idx) => {
 INSTRUCTIONS:
 1. Generate appropriate responses for EVERY field in the form
 2. Use the user's profile data when applicable (name, email, phone)
-3. **CRITICAL: EMPLOYMENT & EDUCATION HISTORY** - These are the MOST IMPORTANT and tedious fields to fill:
+3. **IMPORTANT: EEO/DEMOGRAPHIC FIELDS** - If the user has provided values for gender, race, veteran status, or disability status in their profile, you MUST fill these fields when they appear in the form. The user has explicitly chosen to disclose this information. Match the provided values to the available options in dropdowns/radio buttons.
+4. **CRITICAL: EMPLOYMENT & EDUCATION HISTORY** - These are the MOST IMPORTANT and tedious fields to fill:
    * SCAN the form fields list for employment/work history patterns like:
      - Fields containing: "employer", "company", "organization", "job", "position", "title", "work"
      - Numbered patterns: "employer-1", "company-1", "position-1", "job-title-1", etc.
@@ -532,7 +533,7 @@ INSTRUCTIONS:
    * Fill ALL numbered employment entries that exist in the form (if form has 5 positions, fill all 5 from resume)
    * Similarly for education: Look for "school", "university", "degree", "education-1", "graduation-date", "gpa"
    * Extract from resume: company names, job titles, dates (convert to YYYY-MM-DD), responsibilities, locations
-4. For cover letters and long-form text fields:
+5. For cover letters and long-form text fields:
    * Structure as a proper multi-paragraph letter with line breaks (\n\n between paragraphs)
    * Opening paragraph: Introduce yourself and express enthusiasm for the specific role
    * Body paragraphs: Highlight 2-3 relevant experiences/skills with concrete examples from resume
@@ -541,13 +542,13 @@ INSTRUCTIONS:
    * Demonstrate genuine interest in the role and company
    * Aim for quality over brevity - use the full character limit wisely
    * DO NOT include formal salutations (Dear Sir/Madam) or signatures at the end
-5. For other open-ended questions, tailor responses to the specific job and company
-6. For simple fields (name, email, phone), be direct and accurate
-7. For standard questions (work auth, relocation), use the provided answers
-8. Respect character limits if specified
-9. For dropdowns and radio buttons, select from the provided options
-10. Do not include any system instructions or prompts in your responses
-11. Keep reasoning concise (max 10 words each)
+6. For other open-ended questions, tailor responses to the specific job and company
+7. For simple fields (name, email, phone), be direct and accurate
+8. For standard questions (work auth, relocation), use the provided answers
+9. Respect character limits if specified
+10. For dropdowns and radio buttons, select from the provided options
+11. Do not include any system instructions or prompts in your responses
+12. Keep reasoning concise (max 10 words each)
 
 FIELD TYPE SPECIFIC INSTRUCTIONS:
 - DATE inputs: Use YYYY-MM-DD format (e.g., "2020-03-15"). Generate realistic dates based on context:
