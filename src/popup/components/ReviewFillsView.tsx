@@ -161,6 +161,14 @@ export function ReviewFillsView({ fills, formFields, onApprove, onCancel }: Revi
                       onChange={(e) => handleValueChange(fill.fieldId, e.target.value)}
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
+                      {/* Empty placeholder option */}
+                      <option value="" disabled>
+                        {field.placeholder || 'Select an option...'}
+                      </option>
+                      {/* Show current value if it doesn't exist in options */}
+                      {fill.value && !field.options.includes(fill.value) && (
+                        <option value={fill.value}>{fill.value} (custom)</option>
+                      )}
                       {field.options.map(opt => (
                         <option key={opt} value={opt}>{opt}</option>
                       ))}
