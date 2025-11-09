@@ -468,10 +468,28 @@ function constructPrompt(formData: ExtractedFormData, profile: UserProfile): str
     .slice(0, 2000); // Further limit for prompt context
 
   // Separate sanitization for resume - allow much more content since we need employment history
-  const sanitizeResume = (text: string) => sanitizeUserInput(text)
-    .replace(/```/g, '') // Remove code blocks
-    .replace(/\{|\}/g, '') // Remove JSON delimiters that could confuse parsing
-    .slice(0, 20000); // Allow up to 20k characters for resume to capture full employment history
+  const sanitizeResume = (text: string) => {
+    let sanitized = sanitizeUserInput(text)
+      .replace(/```/g, '') // Remove code blocks
+      .replace(/\{|\}/g, '') // Remove JSON delimiters that could confuse parsing
+      .replace(/###/g, '') // Remove triple hash prompt delimiters
+      .replace(/(Human:|Assistant:|System:|User:|You are|Ignore previous instructions)/gi, '') // Remove common prompt injection patterns
+      .replace(/[\[\]\(\)]/g, '') // Remove brackets that could be used for prompt structure
+      .replace(/<\s*\/?\s*\w+\s*>/g, '') // Remove HTML/XML-like tags
+      .replace(/[\u202E\u202D\u202A\u202B\u202C]/g, '') // Remove Unicode directionality chars
+      .replace(/[\u200B-\u200F\uFEFF]/g, '') // Remove zero-width and BOM chars
+      .replace(/[\r\n]{3,}/g, '\n\n') // Collapse excessive newlines
+      .replace(/[\x00-\x1F\x7F]/g, '') // Remove remaining control chars
+      .replace(/["']/g, '') // Remove quotes to prevent string escapes
+      .replace(/\\[a-zA-Z]/g, '') // Remove backslash-escaped sequences
+      .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove more control chars
+      .replace(/[\uFFF0-\uFFFF]/g, '') // Remove non-characters
+      .replace(/[\uE000-\uF8FF]/g, '') // Remove private use area
+      .replace(/(return\s+ONLY\s+the\s+JSON\s+object)/gi, '') // Remove prompt instructions
+      .slice(0, 20000); // Allow up to 20k characters for resume to capture full employment history
+    // Optionally, reject or flag if suspicious patterns remain (not shown here)
+    return sanitized;
+  };
 
   const safeName = sanitizeForPrompt(profile.name || 'Not provided');
   const safeEmail = sanitizeForPrompt(profile.email || 'Not provided');
