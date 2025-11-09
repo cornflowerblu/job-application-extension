@@ -440,10 +440,16 @@ function constructPrompt(formData: ExtractedFormData, profile: UserProfile): str
     .replace(/\{|\}/g, '') // Remove JSON delimiters that could confuse parsing
     .slice(0, 2000); // Further limit for prompt context
 
+  // Separate sanitization for resume - allow much more content since we need employment history
+  const sanitizeResume = (text: string) => sanitizeUserInput(text)
+    .replace(/```/g, '') // Remove code blocks
+    .replace(/\{|\}/g, '') // Remove JSON delimiters that could confuse parsing
+    .slice(0, 20000); // Allow up to 20k characters for resume to capture full employment history
+
   const safeName = sanitizeForPrompt(profile.name || 'Not provided');
   const safeEmail = sanitizeForPrompt(profile.email || 'Not provided');
   const safePhone = sanitizeForPrompt(profile.phone || 'Not provided');
-  const safeResume = sanitizeForPrompt(profile.resume || '');
+  const safeResume = sanitizeResume(profile.resume || '');
   const safeWorkAuth = sanitizeForPrompt(profile.workAuthorization || 'Not specified');
   const safeRelocate = sanitizeForPrompt(profile.willingToRelocate || 'Not specified');
   const safeGender = sanitizeForPrompt(profile.gender || 'Not specified');
