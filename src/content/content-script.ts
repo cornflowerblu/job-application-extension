@@ -489,7 +489,7 @@ async function fillForm(fills: FormFill[]): Promise<FillResult> {
         current,
         total,
         fieldId: fill.fieldId
-      }).catch(() => {
+      }, () => {
         // Ignore errors - popup might be closed
       });
     } catch (error) {
