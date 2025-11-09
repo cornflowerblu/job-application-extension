@@ -601,7 +601,7 @@ function hasValidationError(element: HTMLElement): { hasError: boolean; message:
       // Try to find adjacent error message
       const parent = element.parentElement;
       if (parent) {
-        const errorMsg = parent.querySelector('.error-message, .invalid-feedback, .validation-message, [class*="error"]');
+        const errorMsg = parent.querySelector('.error-message, .invalid-feedback, .validation-message, .error-text, .field-error, .input-error, [role="alert"]');
         if (errorMsg && errorMsg.textContent) {
           return { hasError: true, message: errorMsg.textContent.trim() };
         }
@@ -615,7 +615,7 @@ function hasValidationError(element: HTMLElement): { hasError: boolean; message:
   if (parent) {
     for (const errorClass of errorClasses) {
       if (parent.classList.contains(errorClass)) {
-        const errorMsg = parent.querySelector('.error-message, .invalid-feedback, .validation-message, [class*="error"]');
+        const errorMsg = parent.querySelector('.error-message, .invalid-feedback, .validation-message, .error-text, .field-error, .input-error, [role="alert"]');
         if (errorMsg && errorMsg.textContent) {
           return { hasError: true, message: errorMsg.textContent.trim() };
         }
