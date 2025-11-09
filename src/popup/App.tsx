@@ -322,6 +322,11 @@ function App() {
           <p className="text-xs text-gray-500">
             This extension works best on job application forms with fillable input fields.
           </p>
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 mt-4">
+              <p className="text-xs text-red-800">{error}</p>
+            </div>
+          )}
         </div>
       )}
 
