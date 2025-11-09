@@ -409,7 +409,7 @@ git push
 
 # Enable GitHub Pages in repo settings
 # Settings > Pages > Source: main branch > /docs folder
-# Your policy will be at: https://yourusername.github.io/repo-name/privacy-policy.html
+# Your policy will be at: https://cornflowerblu.github.io/job-application-extension/privacy-policy.html
 ```
 
 #### 1.3 Store Description
@@ -507,7 +507,7 @@ For issues or questions, visit: [GitHub repo URL]
 
 **Privacy:**
 
-- Privacy policy URL: `https://yourusername.github.io/repo-name/privacy-policy.html`
+- Privacy policy URL: `https://cornflowerblu.github.io/job-application-extension/privacy-policy.html`
 - Permissions justification:
   - `storage`: "Store user configuration, resume, and profile data locally"
   - `activeTab`: "Detect and analyze job application forms on the current tab"
@@ -567,7 +567,7 @@ Auto-updates are enabled - you'll always have the latest version.
 
 For the latest unreleased features:
 
-1. Download the latest release from [GitHub Releases](https://github.com/yourusername/repo/releases)
+1. Download the latest release from [GitHub Releases](https://github.com/cornflowerblu/job-application-extension/releases)
 2. Extract the ZIP file
 3. Go to `chrome://extensions/`
 4. Enable "Developer mode"
