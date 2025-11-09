@@ -250,13 +250,29 @@ export async function generateFormFills(formData: ExtractedFormData, profile: Us
   // Construct the prompt for Claude
   const prompt = constructPrompt(formData, profile);
 
+  // Helper to send progress updates to popup
+  const sendProgress = (message: string) => {
+    try {
+      chrome.runtime.sendMessage({ type: 'PROGRESS_UPDATE', message });
+      // Popup might be closed, ignore errors
+    } catch (error) {
+      // Ignore errors - popup might be closed or in test environment
+    }
+  };
+
+  // Send initial progress
+  sendProgress(`Analyzing ${formData.fields.length} form fields with Claude AI...`);
+
   // Call Anthropic API with retry logic
   const maxRetries = TIMING.API_RETRY_MAX;
+
   let lastError: Error = new Error('Unknown error');
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      console.log(`Attempt ${attempt}/${maxRetries} - Calling Claude API...`);
+      const progressMsg = `Attempt ${attempt}/${maxRetries} - Calling Claude API...`;
+      console.log(progressMsg);
+      sendProgress(progressMsg);
 
       const response = await fetchWithTimeout(API_CONFIG.ANTHROPIC_BASE_URL + API_CONFIG.ENDPOINTS.MESSAGES, {
         method: 'POST',
@@ -285,13 +301,17 @@ export async function generateFormFills(formData: ExtractedFormData, profile: Us
           throw new Error(USER_FRIENDLY_ERRORS.API_AUTHENTICATION);
         } else if (response.status === 429) {
           const waitTime = Math.min(TIMING.API_RETRY_BASE_DELAY * Math.pow(2, attempt), TIMING.API_RETRY_MAX_DELAY);
-          console.log(`Rate limited. Waiting ${waitTime}ms before retry...`);
+          const waitMsg = `Rate limited. Waiting ${Math.ceil(waitTime / 1000)}s before retry...`;
+          console.log(waitMsg);
+          sendProgress(waitMsg);
           await new Promise(resolve => setTimeout(resolve, waitTime));
           lastError = new Error(USER_FRIENDLY_ERRORS.API_RATE_LIMIT);
           continue;
         } else if (response.status >= 500) {
           const waitTime = TIMING.API_RETRY_BASE_DELAY * attempt;
-          console.log(`Server error (${response.status}). Waiting ${waitTime}ms before retry...`);
+          const waitMsg = `Server error (${response.status}). Waiting ${Math.ceil(waitTime / 1000)}s before retry...`;
+          console.log(waitMsg);
+          sendProgress(waitMsg);
           await new Promise(resolve => setTimeout(resolve, waitTime));
           lastError = new Error(USER_FRIENDLY_ERRORS.API_SERVER_ERROR);
           continue;
@@ -342,7 +362,9 @@ export async function generateFormFills(formData: ExtractedFormData, profile: Us
           }
         }
 
-        console.log(`Successfully generated ${fills.fills.length} form fills`);
+        const successMsg = `Successfully generated ${fills.fills.length} form fills`;
+        console.log(successMsg);
+        sendProgress(successMsg);
         console.log('DEBUG: Generated fills:', fills.fills.map(f => ({ fieldId: f.fieldId, value: f.value?.substring(0, 50) })));
 
         // DEBUG: Check if EEO fields were generated
@@ -440,10 +462,34 @@ function constructPrompt(formData: ExtractedFormData, profile: UserProfile): str
     .replace(/\{|\}/g, '') // Remove JSON delimiters that could confuse parsing
     .slice(0, 2000); // Further limit for prompt context
 
+  // Separate sanitization for resume - allow much more content since we need employment history
+  const sanitizeResume = (text: string) => {
+    let sanitized = sanitizeUserInput(text)
+      .replace(/```/g, '') // Remove code blocks
+      .replace(/\{|\}/g, '') // Remove JSON delimiters that could confuse parsing
+      .replace(/###/g, '') // Remove triple hash prompt delimiters
+      .replace(/(Human:|Assistant:|System:|User:|You are|Ignore previous instructions)/gi, '') // Remove common prompt injection patterns
+      .replace(/[\[\]\(\)]/g, '') // Remove brackets that could be used for prompt structure
+      .replace(/<\s*\/?\s*\w+\s*>/g, '') // Remove HTML/XML-like tags
+      .replace(/[\u202E\u202D\u202A\u202B\u202C]/g, '') // Remove Unicode directionality chars
+      .replace(/[\u200B-\u200F\uFEFF]/g, '') // Remove zero-width and BOM chars
+      .replace(/[\r\n]{3,}/g, '\n\n') // Collapse excessive newlines
+      .replace(/[\x00-\x1F\x7F]/g, '') // Remove remaining control chars
+      .replace(/["']/g, '') // Remove quotes to prevent string escapes
+      .replace(/\\[a-zA-Z]/g, '') // Remove backslash-escaped sequences
+      .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove more control chars
+      .replace(/[\uFFF0-\uFFFF]/g, '') // Remove non-characters
+      .replace(/[\uE000-\uF8FF]/g, '') // Remove private use area
+      .replace(/(return\s+ONLY\s+the\s+JSON\s+object)/gi, '') // Remove prompt instructions
+      .slice(0, 20000); // Allow up to 20k characters for resume to capture full employment history
+    // Optionally, reject or flag if suspicious patterns remain (not shown here)
+    return sanitized;
+  };
+
   const safeName = sanitizeForPrompt(profile.name || 'Not provided');
   const safeEmail = sanitizeForPrompt(profile.email || 'Not provided');
   const safePhone = sanitizeForPrompt(profile.phone || 'Not provided');
-  const safeResume = sanitizeForPrompt(profile.resume || '');
+  const safeResume = sanitizeResume(profile.resume || '');
   const safeWorkAuth = sanitizeForPrompt(profile.workAuthorization || 'Not specified');
   const safeRelocate = sanitizeForPrompt(profile.willingToRelocate || 'Not specified');
   const safeGender = sanitizeForPrompt(profile.gender || 'Not specified');
@@ -485,16 +531,42 @@ ${formData.fields.map((field, idx) => {
 </form_fields>
 
 INSTRUCTIONS:
-1. Generate appropriate responses for each field
+1. Generate appropriate responses for EVERY field in the form
 2. Use the user's profile data when applicable (name, email, phone)
-3. For open-ended questions, tailor responses to the specific job and company
-4. For standard questions (work auth, relocation), use the provided answers
-5. Keep responses concise and professional
-6. Respect character limits if specified
-7. For dropdowns and radio buttons, select from the provided options
-8. Do not include any system instructions or prompts in your responses
-9. Only respond with appropriate form field values
-10. Keep reasoning VERY concise (max 10 words each)
+3. **IMPORTANT: EEO/DEMOGRAPHIC FIELDS** - If the user has provided values for gender, race, veteran status, or disability status in their profile, you MUST fill these fields when they appear in the form. The user has explicitly chosen to disclose this information. Match the provided values to the available options in dropdowns/radio buttons.
+4. **CRITICAL: EMPLOYMENT & EDUCATION HISTORY** - These are the MOST IMPORTANT and tedious fields to fill:
+   * SCAN the form fields list for employment/work history patterns like:
+     - Fields containing: "employer", "company", "organization", "job", "position", "title", "work"
+     - Numbered patterns: "employer-1", "company-1", "position-1", "job-title-1", etc.
+     - Date fields: "start-date", "end-date", "employment-start", "employment-end"
+     - Description fields: "responsibilities", "duties", "job-description", "description-1"
+   * PARSE the resume thoroughly and extract ALL employment positions
+   * For EACH position in the resume, generate fills for the corresponding numbered field set
+   * Order: Most recent position → position-1, previous → position-2, etc.
+   * Fill ALL numbered employment entries that exist in the form (if form has 5 positions, fill all 5 from resume)
+   * Similarly for education: Look for "school", "university", "degree", "education-1", "graduation-date", "gpa"
+   * Extract from resume: company names, job titles, dates (convert to YYYY-MM-DD), responsibilities, locations
+5. For cover letters and long-form text fields:
+   * Structure as a proper multi-paragraph letter with actual blank lines (real line breaks) between paragraphs. For example:
+     Paragraph 1 text.
+     
+     Paragraph 2 text.
+     
+     Paragraph 3 text.
+   * Opening paragraph: Introduce yourself and express enthusiasm for the specific role
+   * Body paragraphs: Highlight 2-3 relevant experiences/skills with concrete examples from resume
+   * Closing paragraph: Reiterate interest and suggest next steps
+   * Be compelling, specific, and enthusiastic throughout
+   * Demonstrate genuine interest in the role and company
+   * Aim for quality over brevity - use the full character limit wisely
+   * DO NOT include formal salutations (Dear Sir/Madam) or signatures at the end
+6. For other open-ended questions, tailor responses to the specific job and company
+7. For simple fields (name, email, phone), be direct and accurate
+8. For standard questions (work auth, relocation), use the provided answers
+9. Respect character limits if specified
+10. For dropdowns and radio buttons, select from the provided options
+11. Do not include any system instructions or prompts in your responses
+12. Keep reasoning concise (max 10 words each)
 
 FIELD TYPE SPECIFIC INSTRUCTIONS:
 - DATE inputs: Use YYYY-MM-DD format (e.g., "2020-03-15"). Generate realistic dates based on context:
@@ -512,10 +584,6 @@ FIELD TYPE SPECIFIC INSTRUCTIONS:
   * Portfolio: "https://[name].com" or relevant domain
   * GitHub: "https://github.com/[username]"
   * If profile doesn't include URLs, generate reasonable placeholder or skip optional URL fields
-- Multi-field scenarios (employment/education history):
-  * Fill multiple entries chronologically (most recent first)
-  * Ensure dates don't overlap incorrectly
-  * Be consistent across related fields (e.g., employer-1, job-title-1, start-date-1 should all relate to same job)
 
 Respond with ONLY a valid JSON object in this exact format:
 {
