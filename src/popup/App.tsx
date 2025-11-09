@@ -68,6 +68,7 @@ interface SessionState {
   showReviewFills: boolean;
   showSummary: boolean;
   error: string | null;
+  noFormDetected: boolean;
 }
 
 function App() {
@@ -75,6 +76,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  const [noFormDetected, setNoFormDetected] = useState(false);
   const [formData, setFormData] = useState<ExtractedFormData | null>(null);
   const [fills, setFills] = useState<Fill[]>([]);
   const [fillResult, setFillResult] = useState<FillResult | null>(null);
@@ -103,6 +105,7 @@ function App() {
         setShowReviewFills(state.showReviewFills || false);
         setShowSummary(state.showSummary || false);
         setError(state.error || null);
+        setNoFormDetected(state.noFormDetected || false);
       }
     });
   }, []);
@@ -117,16 +120,21 @@ function App() {
       fillResult,
       showReviewFills,
       showSummary,
-      error
+      error,
+      noFormDetected
     };
     chrome.storage.session.set({ popupState: sessionState });
-  }, [loading, loadingMessage, formData, fills, fillResult, showReviewFills, showSummary, error]);
+  }, [loading, loadingMessage, formData, fills, fillResult, showReviewFills, showSummary, error, noFormDetected]);
 
-  // Listen for progress updates from service worker
+  // Listen for progress updates from service worker and content script
   useEffect(() => {
-    const handleMessage = (message: { type: string; message?: string }) => {
+    const handleMessage = (message: { type: string; message?: string; current?: number; total?: number; fieldId?: string }) => {
       if (message.type === 'PROGRESS_UPDATE' && message.message) {
         setLoadingMessage(message.message);
+      }
+      if (message.type === 'FILL_PROGRESS' && message.current !== undefined && message.total !== undefined) {
+        const percentage = Math.round((message.current / message.total) * 100);
+        setLoadingMessage(`Filling field ${message.current} of ${message.total} (${percentage}%)`);
       }
     };
 
@@ -137,6 +145,7 @@ function App() {
   const handleAnalyzeForm = async () => {
     setLoading(true);
     setError(null);
+    setNoFormDetected(false);
 
     try {
       // Step 1: Extract form fields
@@ -151,7 +160,15 @@ function App() {
       const response = await chrome.tabs.sendMessage(tab.id, { type: 'ANALYZE_FORM' });
 
       if (!response.success) {
-        throw new Error(response.error || 'Failed to analyze form');
+        // Check if this is a "no form detected" error
+        const errorMessage = response.error || 'Failed to analyze form';
+        if (errorMessage.toLowerCase().includes('no form') ||
+            errorMessage.toLowerCase().includes('no fillable') ||
+            errorMessage.toLowerCase().includes('no application')) {
+          setNoFormDetected(true);
+          throw new Error(errorMessage);
+        }
+        throw new Error(errorMessage);
       }
 
       setFormData(response.data);
@@ -201,6 +218,7 @@ function App() {
     }
 
     setLoading(true);
+    setLoadingMessage(`Starting form fill... (0 of ${approvedFills.length} fields)`);
     setError(null);
     setShowReviewFills(false);
 
@@ -236,6 +254,7 @@ function App() {
       setShowReviewFills(true); // Go back to review on error
     } finally {
       setLoading(false);
+      setLoadingMessage('');
     }
   };
 
@@ -284,9 +303,22 @@ function App() {
         </p>
       </div>
 
-      {error && (
+      {error && !noFormDetected && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
           <p className="text-sm text-red-800">{error}</p>
+        </div>
+      )}
+
+      {noFormDetected && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-4 text-center">
+          <div className="text-4xl mb-3">📄</div>
+          <h3 className="text-base font-semibold text-gray-900 mb-2">No Form Detected</h3>
+          <p className="text-sm text-gray-600 mb-3">
+            Navigate to a job application page to get started.
+          </p>
+          <p className="text-xs text-gray-500">
+            This extension works best on job application forms with fillable input fields.
+          </p>
         </div>
       )}
 

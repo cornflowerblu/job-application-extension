@@ -476,7 +476,26 @@ async function fillForm(fills: FormFill[]): Promise<FillResult> {
     errors: []
   };
 
-  for (const fill of fills) {
+  const total = fills.length;
+
+  for (let i = 0; i < fills.length; i++) {
+    const fill = fills[i];
+    const current = i + 1;
+
+    // Send progress update
+    try {
+      chrome.runtime.sendMessage({
+        type: 'FILL_PROGRESS',
+        current,
+        total,
+        fieldId: fill.fieldId
+      }).catch(() => {
+        // Ignore errors - popup might be closed
+      });
+    } catch (error) {
+      // Ignore errors - popup might be closed
+    }
+
     try {
       const element = findElementById(fill.fieldId);
       if (!element) {
@@ -489,10 +508,23 @@ async function fillForm(fills: FormFill[]): Promise<FillResult> {
       }
 
       await fillField(element, fill.value);
-      result.filled.push({
-        fieldId: fill.fieldId,
-        value: fill.value
-      });
+
+      // Check for validation errors after a brief delay to let validation run
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      const validation = hasValidationError(element);
+
+      if (validation.hasError) {
+        console.warn(`Validation error on field ${fill.fieldId}: ${validation.message}`);
+        result.errors.push({
+          fieldId: fill.fieldId,
+          error: `Validation error: ${validation.message}`
+        });
+      } else {
+        result.filled.push({
+          fieldId: fill.fieldId,
+          value: fill.value
+        });
+      }
     } catch (error) {
       console.error(`Error filling field ${fill.fieldId}:`, error);
       result.errors.push({
@@ -523,6 +555,72 @@ function findElementById(id: string): HTMLElement | null {
   if (byName) return byName;
 
   return null;
+}
+
+/**
+ * Check if a field has validation errors
+ */
+function hasValidationError(element: HTMLElement): { hasError: boolean; message: string } {
+  // Check aria-invalid
+  if (element.getAttribute('aria-invalid') === 'true') {
+    // Try to find associated error message via aria-describedby
+    const describedBy = element.getAttribute('aria-describedby');
+    if (describedBy) {
+      const errorElement = document.getElementById(describedBy);
+      if (errorElement && errorElement.textContent) {
+        return { hasError: true, message: errorElement.textContent.trim() };
+      }
+    }
+    return { hasError: true, message: 'Field has validation error' };
+  }
+
+  // Check for :invalid CSS pseudo-class
+  if ((element as HTMLInputElement).validity && !(element as HTMLInputElement).validity.valid) {
+    const validityState = (element as HTMLInputElement).validity;
+    let message = 'Invalid input';
+
+    if (validityState.valueMissing) message = 'This field is required';
+    else if (validityState.typeMismatch) message = 'Invalid format';
+    else if (validityState.patternMismatch) message = 'Does not match required pattern';
+    else if (validityState.tooLong) message = 'Input is too long';
+    else if (validityState.tooShort) message = 'Input is too short';
+    else if (validityState.rangeOverflow) message = 'Value is too high';
+    else if (validityState.rangeUnderflow) message = 'Value is too low';
+
+    return { hasError: true, message };
+  }
+
+  // Check for error classes on the element itself
+  const errorClasses = ['error', 'invalid', 'validation-error', 'has-error', 'is-invalid'];
+  for (const errorClass of errorClasses) {
+    if (element.classList.contains(errorClass)) {
+      // Try to find adjacent error message
+      const parent = element.parentElement;
+      if (parent) {
+        const errorMsg = parent.querySelector('.error-message, .invalid-feedback, .validation-message, [class*="error"]');
+        if (errorMsg && errorMsg.textContent) {
+          return { hasError: true, message: errorMsg.textContent.trim() };
+        }
+      }
+      return { hasError: true, message: 'Field has validation error' };
+    }
+  }
+
+  // Check for error classes on parent wrapper
+  const parent = element.parentElement;
+  if (parent) {
+    for (const errorClass of errorClasses) {
+      if (parent.classList.contains(errorClass)) {
+        const errorMsg = parent.querySelector('.error-message, .invalid-feedback, .validation-message, [class*="error"]');
+        if (errorMsg && errorMsg.textContent) {
+          return { hasError: true, message: errorMsg.textContent.trim() };
+        }
+        return { hasError: true, message: 'Field has validation error' };
+      }
+    }
+  }
+
+  return { hasError: false, message: '' };
 }
 
 /**
