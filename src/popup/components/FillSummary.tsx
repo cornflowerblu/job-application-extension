@@ -4,12 +4,7 @@ interface FillResult {
   errors: Array<{ fieldId: string; error: string }>;
 }
 
-interface FormField {
-  id: string;
-  type: string;
-  label: string;
-  required: boolean;
-}
+import { FormField } from '../../types';
 
 interface FillSummaryProps {
   result: FillResult;
