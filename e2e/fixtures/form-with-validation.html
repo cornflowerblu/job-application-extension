@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Form with Validation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        input.error {
+            border-color: #dc3545;
+            background-color: #fff5f5;
+        }
+        .error-message {
+            color: #dc3545;
+            font-size: 14px;
+            margin-top: 5px;
+            display: none;
+        }
+        .error-message.visible {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <h1>Job Application Form with Validation</h1>
+
+    <form id="application-form">
+        <div class="form-group">
+            <label for="name">Full Name *</label>
+            <input type="text" id="name" name="name" required>
+            <div class="error-message" data-for="name">Name is required</div>
+        </div>
+
+        <div class="form-group">
+            <label for="email">Email Address *</label>
+            <input type="email" id="email" name="email" required>
+            <div class="error-message" data-for="email">Please enter a valid email address</div>
+        </div>
+
+        <div class="form-group">
+            <label for="phone">Phone Number</label>
+            <input type="tel" id="phone" name="phone" pattern="[0-9]{3}-[0-9]{3}-[0-9]{4}">
+            <div class="error-message" data-for="phone">Phone must be in format: 123-456-7890</div>
+        </div>
+
+        <div class="form-group">
+            <label for="website">Website</label>
+            <input type="url" id="website" name="website">
+            <div class="error-message" data-for="website">Please enter a valid URL</div>
+        </div>
+    </form>
+
+    <script>
+        // Simple validation logic
+        function validateField(field) {
+            const errorMsg = document.querySelector(`.error-message[data-for="${field.id}"]`);
+            let isValid = true;
+            let message = '';
+
+            // Check required fields
+            if (field.hasAttribute('required') && !field.value.trim()) {
+                isValid = false;
+                message = errorMsg.textContent;
+            }
+
+            // Email validation
+            if (field.type === 'email' && field.value) {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(field.value)) {
+                    isValid = false;
+                    message = 'Please enter a valid email address';
+                }
+            }
+
+            // Phone validation
+            if (field.type === 'tel' && field.value && field.hasAttribute('pattern')) {
+                const phoneRegex = /^[0-9]{3}-[0-9]{3}-[0-9]{4}$/;
+                if (!phoneRegex.test(field.value)) {
+                    isValid = false;
+                    message = 'Phone must be in format: 123-456-7890';
+                }
+            }
+
+            // URL validation
+            if (field.type === 'url' && field.value) {
+                try {
+                    new URL(field.value);
+                } catch {
+                    isValid = false;
+                    message = 'Please enter a valid URL';
+                }
+            }
+
+            // Update UI
+            if (!isValid) {
+                field.classList.add('error');
+                field.setAttribute('aria-invalid', 'true');
+                if (errorMsg) {
+                    errorMsg.classList.add('visible');
+                    errorMsg.textContent = message;
+                }
+            } else {
+                field.classList.remove('error');
+                field.removeAttribute('aria-invalid');
+                if (errorMsg) {
+                    errorMsg.classList.remove('visible');
+                }
+            }
+
+            return isValid;
+        }
+
+        // Add validation on blur
+        document.querySelectorAll('input').forEach(input => {
+            input.addEventListener('blur', () => validateField(input));
+            input.addEventListener('input', () => {
+                // Clear error on input if field was previously invalid
+                if (input.classList.contains('error')) {
+                    validateField(input);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
