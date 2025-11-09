@@ -565,7 +565,7 @@ async function validateApiKey(apiKey: string): Promise<boolean> {
 }
 
 // Expose for E2E testing ONLY in development/test environments
-if (import.meta.env.MODE === 'test' || import.meta.env.MODE === 'development') {
+if (typeof process !== 'undefined' && (process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development')) {
   (globalThis as any).__generateFormFills = generateFormFills;
   (globalThis as any).__fetchWithTimeout = fetchWithTimeout;
 }
