@@ -534,15 +534,45 @@ async function fillField(element: HTMLElement, value: string | boolean): Promise
 
     // Try to parse and format various date formats to YYYY-MM-DD
     if (dateValue && !dateValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      // Try to parse common date formats
-      const date = new Date(dateValue);
-      if (!isNaN(date.getTime())) {
-        // Format as YYYY-MM-DD
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        dateValue = `${year}-${month}-${day}`;
+      // Try to parse common date formats explicitly
+      let parsedYear: number | null = null;
+      let parsedMonth: number | null = null;
+      let parsedDay: number | null = null;
+
+      // MM/DD/YYYY
+      let mdy = dateValue.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (mdy) {
+        parsedYear = parseInt(mdy[3], 10);
+        parsedMonth = parseInt(mdy[1], 10);
+        parsedDay = parseInt(mdy[2], 10);
       }
+
+      // DD/MM/YYYY
+      let dmy = dateValue.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+      if (!mdy && dmy) {
+        parsedYear = parseInt(dmy[3], 10);
+        parsedMonth = parseInt(dmy[2], 10);
+        parsedDay = parseInt(dmy[1], 10);
+      }
+
+      // YYYY/MM/DD
+      let ymd = dateValue.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+      if (!mdy && !dmy && ymd) {
+        parsedYear = parseInt(ymd[1], 10);
+        parsedMonth = parseInt(ymd[2], 10);
+        parsedDay = parseInt(ymd[3], 10);
+      }
+
+      if (
+        parsedYear !== null &&
+        parsedMonth !== null &&
+        parsedDay !== null &&
+        parsedMonth >= 1 && parsedMonth <= 12 &&
+        parsedDay >= 1 && parsedDay <= 31
+      ) {
+        dateValue = `${parsedYear}-${String(parsedMonth).padStart(2, '0')}-${String(parsedDay).padStart(2, '0')}`;
+      }
+      // If none matched, leave as-is (do not attempt Date parsing)
     }
 
     dateInput.value = dateValue;
