@@ -29,9 +29,10 @@ jobs:
       - name: Build extension
         run: npm run build
 
+      - name: Create .env file for tests
+        run: echo "API_KEY=${{ secrets.ANTHROPIC_API_KEY }}" > .env
+
       - name: Run Real API tests
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: npm run test:e2e:real-api
 
       - name: Upload Playwright report
