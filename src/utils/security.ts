@@ -237,11 +237,11 @@ export class SecureStorage {
       {
         name: 'PBKDF2',
         salt: new TextEncoder().encode(salt),
-        iterations: 100000,
+        iterations: CRYPTO.PBKDF2_ITERATIONS,
         hash: 'SHA-256'
       },
       keyMaterial,
-      { name: 'AES-GCM', length: 256 },
+      { name: 'AES-GCM', length: CRYPTO.AES_KEY_LENGTH },
       false,
       ['encrypt', 'decrypt']
     );
@@ -250,7 +250,7 @@ export class SecureStorage {
   static async encryptData(data: string, userSalt: string): Promise<string> {
     try {
       const key = await this.deriveKey('job-app-extension', userSalt);
-      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const iv = crypto.getRandomValues(new Uint8Array(CRYPTO.GCM_IV_LENGTH));
       
       const encrypted = await crypto.subtle.encrypt(
         { name: 'AES-GCM', iv: iv },
@@ -273,8 +273,8 @@ export class SecureStorage {
   static async decryptData(encryptedData: string, userSalt: string): Promise<string> {
     try {
       const combined = new Uint8Array(atob(encryptedData).split('').map(c => c.charCodeAt(0)));
-      const iv = combined.slice(0, 12);
-      const encrypted = combined.slice(12);
+      const iv = combined.slice(0, CRYPTO.GCM_IV_LENGTH);
+      const encrypted = combined.slice(CRYPTO.GCM_IV_LENGTH);
 
       const key = await this.deriveKey('job-app-extension', userSalt);
       

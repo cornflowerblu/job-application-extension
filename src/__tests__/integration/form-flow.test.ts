@@ -19,6 +19,12 @@
 
 import { generateFormFills } from '../../background/service-worker';
 
+// Mock retrieveApiKey to return test API key
+jest.mock('../../utils/security', () => ({
+  ...jest.requireActual('../../utils/security'),
+  retrieveApiKey: jest.fn().mockResolvedValue('sk-ant-test-key-12345678901234567890'),
+}));
+
 // SAFETY CHECK: Verify we're in a test environment
 if (typeof jest === 'undefined') {
   throw new Error('SAFETY: Integration tests must run in Jest environment with mocked APIs');
@@ -433,7 +439,7 @@ describe('Form Flow Integration Tests (Mocked)', () => {
         })
       });
 
-      await expect(generateFormFills(formData, profile)).rejects.toThrow('too long');
+      await expect(generateFormFills(formData, profile)).rejects.toThrow('The form is too complex');
     });
   });
 

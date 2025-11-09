@@ -5,10 +5,19 @@
 
 import { generateFormFills, fetchWithTimeout } from '../background/service-worker';
 
+// Mock retrieveApiKey - default returns test key, can be overridden per test
+const mockRetrieveApiKey = jest.fn().mockResolvedValue('sk-ant-test-key-12345678901234567890');
+jest.mock('../utils/security', () => ({
+  ...jest.requireActual('../utils/security'),
+  retrieveApiKey: (...args: any[]) => mockRetrieveApiKey(...args),
+}));
+
 describe('API Error Handling', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.resetAllMocks();
+    // Reset retrieveApiKey mock to default value
+    mockRetrieveApiKey.mockResolvedValue('sk-ant-test-key-12345678901234567890');
   });
 
   const mockFormData = {
@@ -34,9 +43,6 @@ describe('API Error Handling', () => {
 
   describe('AJH-78: Invalid API Key', () => {
     it('should throw API error message for 401 Unauthorized when provided', async () => {
-      // Mock chrome.storage.local.get to return an API key
-      (global.chrome.storage.local.get as jest.Mock).mockResolvedValue({ apiKey: 'invalid-key' });
-
       // Mock fetch to return 401
       (global.fetch as jest.Mock).mockResolvedValue({
         ok: false,
@@ -47,13 +53,11 @@ describe('API Error Handling', () => {
       });
 
       await expect(generateFormFills(mockFormData, mockProfile)).rejects.toThrow(
-        'Invalid authentication'
+        'Invalid API key. Please check your settings.'
       );
     });
 
     it('should use fallback message for 401 when no API error message provided and not retry', async () => {
-      (global.chrome.storage.local.get as jest.Mock).mockResolvedValue({ apiKey: 'invalid-key' });
-
       (global.fetch as jest.Mock).mockResolvedValue({
         ok: false,
         status: 401,
@@ -61,7 +65,7 @@ describe('API Error Handling', () => {
       });
 
       await expect(generateFormFills(mockFormData, mockProfile)).rejects.toThrow(
-        'Invalid API key. Please check your Anthropic API key in settings.'
+        'Invalid API key. Please check your settings.'
       );
 
       // Should only be called once (no retries for 401)
@@ -133,7 +137,7 @@ describe('API Error Handling', () => {
 
       // Set up assertion before running timers
       const assertion = expect(promise).rejects.toMatchObject({
-        message: expect.stringMatching(/Unable to complete the request.*exceeded the API rate limit/is)
+        message: expect.stringMatching(/Unable to complete the request.*Too many requests/is)
       });
 
       // Run timers to trigger retries and eventual failure
@@ -262,13 +266,11 @@ describe('API Error Handling', () => {
       });
 
       await expect(generateFormFills(mockFormData, mockProfile)).rejects.toThrow(
-        /incomplete response from Claude API/i
+        'Received an unexpected response. Please try again.'
       );
     });
 
     it('should handle invalid JSON in response', async () => {
-      (global.chrome.storage.local.get as jest.Mock).mockResolvedValue({ apiKey: 'valid-key' });
-
       (global.fetch as jest.Mock).mockResolvedValue({
         ok: true,
         json: async () => ({
@@ -281,7 +283,7 @@ describe('API Error Handling', () => {
       });
 
       await expect(generateFormFills(mockFormData, mockProfile)).rejects.toThrow(
-        /Could not understand Claude's response format/i
+        'Received an unexpected response. Please try again.'
       );
     });
 
@@ -377,7 +379,8 @@ describe('API Error Handling', () => {
 
   describe('Input Validation', () => {
     it('should throw error when API key is not configured', async () => {
-      (global.chrome.storage.local.get as jest.Mock).mockResolvedValue({}); // No API key
+      // Mock retrieveApiKey to return null (no API key)
+      mockRetrieveApiKey.mockResolvedValue(null);
 
       await expect(generateFormFills(mockFormData, mockProfile)).rejects.toThrow(
         'API key not configured'
@@ -385,8 +388,6 @@ describe('API Error Handling', () => {
     });
 
     it('should throw error when form has no fields', async () => {
-      (global.chrome.storage.local.get as jest.Mock).mockResolvedValue({ apiKey: 'valid-key' });
-
       const emptyFormData = {
         ...mockFormData,
         fields: [],
