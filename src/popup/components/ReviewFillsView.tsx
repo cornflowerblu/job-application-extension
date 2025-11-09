@@ -1,22 +1,5 @@
 import { useState } from 'react';
-
-interface Fill {
-  fieldId: string;
-  value: string;
-  confidence: 'high' | 'medium' | 'low';
-  reasoning: string;
-}
-
-interface FormField {
-  id: string;
-  type: string;
-  label: string;
-  required: boolean;
-  placeholder?: string;
-  maxLength?: number | null;
-  options?: string[];
-}
-
+import { Fill, FormField } from '../../types';
 interface ReviewFillsViewProps {
   fills: Fill[];
   formFields: FormField[];
