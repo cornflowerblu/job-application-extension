@@ -264,7 +264,6 @@ test.describe('Real Claude API E2E Tests', () => {
 
     // URLs
     const linkedinValue = await page.locator('#linkedin-url').inputValue();
-    const portfolioValue = await page.locator('#portfolio-url').inputValue();
 
     // Address
     const streetValue = await page.locator('#street-address').inputValue();
