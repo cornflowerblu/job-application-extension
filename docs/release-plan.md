@@ -23,12 +23,40 @@ This guide covers the release process for the AJH Chrome extension, from initial
 - Complete control over distribution
 - Free (no fees)
 - Quick iteration cycles
+- **Automated via GitHub Actions** - Just push a tag!
 
 **Limitations:**
 
 - No auto-updates
 - Users must manually install and update
 - Requires Developer Mode in Chrome
+
+### 🤖 Automated Release Process
+
+**TL;DR:** Update versions, update CHANGELOG, commit, tag, push. CI does the rest!
+
+The release process is **fully automated** via GitHub Actions (`.github/workflows/release.yml`):
+- Triggered when you push a version tag (e.g., `v0.1.0`)
+- Runs full test suite, builds, packages, and creates GitHub Release
+- No manual ZIP creation or release drafting needed
+
+**Quick Release:**
+```bash
+# 1. Update versions
+# Edit: public/manifest.json and package.json
+
+# 2. Update CHANGELOG.md
+
+# 3. Commit and tag
+git add public/manifest.json package.json CHANGELOG.md
+git commit -m "chore: release v0.1.0"
+git tag -a v0.1.0 -m "Release v0.1.0"
+git push origin main --tags
+
+# 4. Watch it build! (check Actions tab on GitHub)
+```
+
+The sections below provide detailed step-by-step instructions.
 
 ### Step 1: Prepare the Release
 
@@ -148,17 +176,36 @@ cd ..
 - Development configs
 - `package.json` and `package-lock.json` (unless needed for build)
 
-### Step 3: Create Git Tag
+### Step 3: Create and Push Git Tag
+
+**⚡ This triggers the automated release workflow!**
 
 ```bash
 # Create annotated tag
 git tag -a v0.1.0 -m "Release v0.1.0 - Initial MVP"
 
-# Push tag to GitHub
+# Push tag to GitHub (this triggers the release workflow)
 git push origin v0.1.0
 ```
 
-### Step 4: Create GitHub Release
+**What happens automatically:**
+1. ✅ CI runs full test suite (`npm run test:ci`)
+2. ✅ Verifies version consistency (tag, manifest.json, package.json)
+3. ✅ Builds the extension
+4. ✅ Creates `agentic-job-hunter-v0.1.0.zip`
+5. ✅ Extracts release notes from CHANGELOG.md
+6. ✅ Creates GitHub Release
+7. ✅ Uploads ZIP file as release asset
+8. ✅ Marks 0.x versions as pre-release automatically
+
+**Monitor the release:**
+- Go to **Actions** tab on GitHub to watch the workflow
+- Release appears in **Releases** section when complete
+- Typically takes 2-3 minutes
+
+### Step 4: Manual Release (Optional / Fallback)
+
+If you need to create a release manually (e.g., if CI is down):
 
 #### Via GitHub Web Interface:
 
@@ -732,20 +779,23 @@ gh release create "v$VERSION" \
 
 ## Tips for Success
 
-1. **Start with GitHub Releases** - Get comfortable with the build/package process before dealing with store review
+1. **Trust the automation** - GitHub Actions handles testing, building, and releasing
 2. **Version conservatively** - Stay in 0.x.x until you're confident in stability
-3. **Test the package** - Always test the actual ZIP you're distributing, not your dev directory
-4. **Keep CHANGELOG updated** - Makes it easy to write release notes
-5. **Use the npm scripts** - `npm run release:prep` runs all tests, `npm run release:package` creates the ZIP
-6. **Sync versions** - Always update BOTH public/manifest.json and package.json
+3. **Sync versions** - Always update BOTH public/manifest.json and package.json
+4. **Keep CHANGELOG updated** - CI extracts release notes from it automatically
+5. **Watch the Actions tab** - Monitor your release build in real-time
+6. **Test locally first** - Use `npm run release:prep` to catch issues before tagging
 7. **Document known issues** - Be upfront about limitations in release notes
 8. **Unlisted is your friend** - Use Unlisted store listing until you're ready for public discovery
 
 ## Available npm Scripts for Releases
 
+**For local testing/validation:**
 - `npm run release:prep` - Runs full CI test suite (typecheck, build, tests)
 - `npm run release:package` - Builds and creates versioned ZIP file
-- `npm run release:all` - Runs prep then package (complete pre-release workflow)
+- `npm run release:all` - Runs prep then package (test the full workflow locally)
+
+**Note:** These scripts are optional! The CI workflow handles everything when you push a tag. Use these scripts to test locally before creating the actual release.
 
 ---
 
