@@ -147,13 +147,13 @@ This extension is open source. You can:
 - Audit the API calls being made
 - Report privacy concerns via GitHub Issues
 
-**Source code:** https://github.com/yourusername/agentic-job-hunter
+**Source code:** https://github.com/cornflowerblue/agentic-job-hunter
 
 ## Contact
 
 For questions, concerns, or privacy-related issues:
 
-- **GitHub Issues**: https://github.com/yourusername/agentic-job-hunter/issues
+- **GitHub Issues**: https://github.com/cornflowerblue/agentic-job-hunter/issues
 - **Email**: [Your contact email here]
 
 ## California Privacy Rights (CCPA)
