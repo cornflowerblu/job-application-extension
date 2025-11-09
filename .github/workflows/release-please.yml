@@ -20,6 +20,15 @@ jobs:
           release-type: node
           # Package name - used for release title
           package-name: agentic-job-hunter
+          # Synchronize version with Chrome extension manifest
+          extra-files: |
+            [
+              {
+                "path": "public/manifest.json",
+                "type": "json",
+                "jsonpath": "$.version"
+              }
+            ]
           # Changelog sections based on conventional commits
           changelog-types: '[
             {"type":"feat","section":"Features","hidden":false},
