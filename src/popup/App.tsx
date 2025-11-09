@@ -127,17 +127,18 @@ function App() {
   }, [loading, loadingMessage, formData, fills, fillResult, showReviewFills, showSummary, error, noFormDetected]);
 
   // Listen for progress updates from service worker and content script
-  useEffect(() => {
-    const handleMessage = (message: { type: string; message?: string; current?: number; total?: number; fieldId?: string }) => {
-      if (message.type === 'PROGRESS_UPDATE' && message.message) {
-        setLoadingMessage(message.message);
-      }
-      if (message.type === 'FILL_PROGRESS' && message.current !== undefined && message.total !== undefined) {
-        const percentage = Math.round((message.current / message.total) * 100);
-        setLoadingMessage(`Filling field ${message.current} of ${message.total} (${percentage}%)`);
-      }
-    };
+  // Stable message handler for Chrome runtime messages
+  const handleMessage = (message: { type: string; message?: string; current?: number; total?: number; fieldId?: string }) => {
+    if (message.type === 'PROGRESS_UPDATE' && message.message) {
+      setLoadingMessage(message.message);
+    }
+    if (message.type === 'FILL_PROGRESS' && message.current !== undefined && message.total !== undefined) {
+      const percentage = Math.round((message.current / message.total) * 100);
+      setLoadingMessage(`Filling field ${message.current} of ${message.total} (${percentage}%)`);
+    }
+  };
 
+  useEffect(() => {
     chrome.runtime.onMessage.addListener(handleMessage);
     return () => chrome.runtime.onMessage.removeListener(handleMessage);
   }, []);
